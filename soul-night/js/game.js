@@ -228,23 +228,34 @@ function draw() {
     ctx.fillRect(e.x - 14, e.y - 18, 28 * (e.hp / e.maxHp), 4);
   }
 
-  // Jugador (parpadea con iframes)
+// Jugador (parpadea con iframes)
   if (player.iframes === 0 || Math.floor(player.iframes / 4) % 2 === 0) {
-    ctx.fillStyle = '#AFA9EC';
-    ctx.beginPath();
-    ctx.arc(player.x, player.y, player.size, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.strokeStyle = '#7F77DD';
-    ctx.lineWidth = 3;
-    ctx.beginPath();
-    ctx.moveTo(player.x, player.y);
-    ctx.lineTo(
-      player.x + Math.cos(player.angle) * 18,
-      player.y + Math.sin(player.angle) * 18
-    );
-    ctx.stroke();
-  }
+    ctx.save();
+    ctx.translate(player.x, player.y);
+    ctx.rotate(player.angle);
 
+    // Cuerpo
+    ctx.fillStyle = '#AFA9EC';
+    ctx.fillRect(-6, -4, 12, 10);
+
+    // Cabeza
+    ctx.fillStyle = '#CEC BF6';
+    ctx.beginPath();
+    ctx.arc(0, -8, 7, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Ojo
+    ctx.fillStyle = '#1a1a2e';
+    ctx.beginPath();
+    ctx.arc(4, -9, 2, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Arma
+    ctx.fillStyle = '#fac775';
+    ctx.fillRect(6, -2, 14, 4);
+
+    ctx.restore();
+  }
   // HUD hp
   ctx.fillStyle = '#333';
   ctx.fillRect(10, 10, 120, 10);
