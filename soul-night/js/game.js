@@ -64,13 +64,17 @@ const player = {
 const enemies = [];
 for (let i = 1; i < rooms.length; i++) {
   const r = rooms[i];
+  const type = i % 2 === 0 ? 'ranged' : 'melee';
   enemies.push({
     x: (r.x + Math.floor(r.w / 2)) * TILE,
     y: (r.y + Math.floor(r.h / 2)) * TILE,
     size: 10,
-    speed: 1.2,
-    hp: 40, maxHp: 40,
+    speed: type === 'melee' ? 1.4 : 0.7,
+    hp: type === 'melee' ? 40 : 30,
+    maxHp: type === 'melee' ? 40 : 30,
     angle: 0,
+    type,
+    lastShot: 0,
     dead: false,
   });
 }
@@ -111,16 +115,13 @@ canvas.addEventListener('mouseup',   () => mouse.down = false);
 
 // --- Update ---
 function update() {
-  // Cámara primero para que el ángulo sea correcto
   camX = Math.max(0, Math.min(player.x - W / 2, COLS * TILE - W));
   camY = Math.max(0, Math.min(player.y - H / 2, ROWS * TILE - H));
 
-  // Ángulo hacia mouse en coordenadas de mundo
   const worldMouseX = mouse.x + camX;
   const worldMouseY = mouse.y + camY;
   player.angle = Math.atan2(worldMouseY - player.y, worldMouseX - player.x);
 
-  // Movimiento jugador
   let dx = 0, dy = 0;
   if (keys['a'] || keys['ArrowLeft'])  dx -= 1;
   if (keys['d'] || keys['ArrowRight']) dx += 1;
@@ -137,7 +138,6 @@ function update() {
 
   if (player.iframes > 0) player.iframes--;
 
-  // Disparar
   const now = Date.now();
   if (mouse.down && now - lastShot > SHOT_RATE) {
     lastShot = now;
@@ -146,10 +146,10 @@ function update() {
       vx: Math.cos(player.angle) * 7,
       vy: Math.sin(player.angle) * 7,
       life: 90,
+      owner: 'player',
     });
   }
 
-  // Actualizar balas
   for (let i = bullets.length - 1; i >= 0; i--) {
     const b = bullets[i];
     b.x += b.vx; b.y += b.vy; b.life--;
@@ -157,6 +157,16 @@ function update() {
     const ty = Math.floor(b.y / TILE);
     const hitWall = ty < 0 || ty >= ROWS || tx < 0 || tx >= COLS || map[ty][tx] === 1;
     if (b.life <= 0 || hitWall) { bullets.splice(i, 1); continue; }
+
+    if (b.owner === 'enemy') {
+      const dx = b.x - player.x, dy = b.y - player.y;
+      if (Math.sqrt(dx * dx + dy * dy) < player.size + 4 && player.iframes === 0) {
+        player.hp -= 15;
+        player.iframes = 30;
+        bullets.splice(i, 1);
+      }
+      continue;
+    }
 
     let hit = false;
     for (const e of enemies) {
@@ -172,18 +182,38 @@ function update() {
     if (hit) continue;
   }
 
-  // Mover enemigos
+  const now2 = Date.now();
   for (const e of enemies) {
     if (e.dead) continue;
     const edx = player.x - e.x;
     const edy = player.y - e.y;
     const elen = Math.sqrt(edx * edx + edy * edy);
     e.angle = Math.atan2(edy, edx);
-    if (elen > 0) {
-      const enx = e.x + (edx / elen) * e.speed;
-      const eny = e.y + (edy / elen) * e.speed;
-      if (!collidesWithWall(enx, e.y, e.size)) e.x = enx;
-      if (!collidesWithWall(e.x, eny, e.size)) e.y = eny;
+
+    if (e.type === 'melee') {
+      if (elen > 0) {
+        const enx = e.x + (edx / elen) * e.speed;
+        const eny = e.y + (edy / elen) * e.speed;
+        if (!collidesWithWall(enx, e.y, e.size)) e.x = enx;
+        if (!collidesWithWall(e.x, eny, e.size)) e.y = eny;
+      }
+    } else {
+      if (elen > 120) {
+        const enx = e.x + (edx / elen) * e.speed;
+        const eny = e.y + (edy / elen) * e.speed;
+        if (!collidesWithWall(enx, e.y, e.size)) e.x = enx;
+        if (!collidesWithWall(e.x, eny, e.size)) e.y = eny;
+      }
+      if (elen < 200 && now2 - e.lastShot > 1500) {
+        e.lastShot = now2;
+        bullets.push({
+          x: e.x, y: e.y,
+          vx: Math.cos(e.angle) * 4,
+          vy: Math.sin(e.angle) * 4,
+          life: 100,
+          owner: 'enemy',
+        });
+      }
     }
 
     if (player.iframes === 0 && elen < e.size + player.size) {
@@ -200,7 +230,6 @@ function draw() {
   ctx.save();
   ctx.translate(-camX, -camY);
 
-  // Tiles
   for (let y = 0; y < ROWS; y++) {
     for (let x = 0; x < COLS; x++) {
       if (map[y][x] === 1) {
@@ -216,7 +245,6 @@ function draw() {
     }
   }
 
-  // Balas
   ctx.fillStyle = '#fac775';
   for (const b of bullets) {
     ctx.beginPath();
@@ -224,10 +252,9 @@ function draw() {
     ctx.fill();
   }
 
-  // Enemigos
   for (const e of enemies) {
     if (e.dead) continue;
-    ctx.fillStyle = '#D4537E';
+    ctx.fillStyle = e.type === 'melee' ? '#D4537E' : '#7F77DD';
     ctx.beginPath();
     ctx.arc(e.x, e.y, e.size, 0, Math.PI * 2);
     ctx.fill();
@@ -237,7 +264,6 @@ function draw() {
     ctx.fillRect(e.x - 14, e.y - 18, 28 * (e.hp / e.maxHp), 4);
   }
 
-  // Jugador
   if (player.iframes === 0 || Math.floor(player.iframes / 4) % 2 === 0) {
     ctx.save();
     ctx.translate(player.x, player.y);
@@ -259,7 +285,6 @@ function draw() {
 
     ctx.restore();
 
-    // Arma
     ctx.save();
     ctx.translate(player.x, player.y);
     ctx.rotate(player.angle);
@@ -268,9 +293,9 @@ function draw() {
     ctx.restore();
   }
 
-  ctx.restore(); // fin de cámara
+  ctx.restore();
 
-  // HUD (fijo en pantalla)
+  // HUD
   ctx.fillStyle = 'rgba(0,0,0,0.5)';
   ctx.fillRect(0, 0, W, 36);
 
@@ -291,5 +316,10 @@ function draw() {
   ctx.fillText(`Kills: ${kills}`, W - 80, 21);
 }
 
-function loop() { update(); draw(); requestAnimationFrame(loop); }
+function loop() {
+  update();
+  draw();
+  requestAnimationFrame(loop);
+}
+
 loop();
