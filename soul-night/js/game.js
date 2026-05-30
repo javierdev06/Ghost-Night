@@ -79,6 +79,7 @@ const bullets = [];
 const keys = {};
 const mouse = { x: W / 2, y: H / 2, down: false };
 let lastShot = 0;
+let kills = 0;
 const SHOT_RATE = 300;
 
 // --- Colisión con muros ---
@@ -155,7 +156,7 @@ function update() {
       const ex = b.x - e.x, ey = b.y - e.y;
       if (Math.sqrt(ex * ex + ey * ey) < e.size + 4) {
         e.hp -= 20;
-        if (e.hp <= 0) e.dead = true;
+        if (e.hp <= 0) { e.dead = true; kills++; }
         bullets.splice(i, 1);
         hit = true; break;
       }
@@ -263,15 +264,28 @@ function draw() {
     ctx.fillRect(4, -2, 14, 4);
     ctx.restore();
   }
-  // HUD hp
-  ctx.fillStyle = '#333';
-  ctx.fillRect(10, 10, 120, 10);
-  ctx.fillStyle = '#e24b4a';
-  ctx.fillRect(10, 10, 120 * (player.hp / player.maxHp), 10);
-  ctx.fillStyle = '#fff';
-  ctx.font = '11px monospace';
-  ctx.fillText(`HP: ${player.hp}/${player.maxHp}`, 10, 34);
-}
+// HUD fondo
+  ctx.fillStyle = 'rgba(0,0,0,0.5)';
+  ctx.fillRect(0, 0, W, 36);
 
+  // Barra HP
+  ctx.fillStyle = '#555';
+  ctx.fillRect(10, 10, 150, 14);
+  ctx.fillStyle = '#e24b4a';
+  ctx.fillRect(10, 10, 150 * (player.hp / player.maxHp), 14);
+  ctx.strokeStyle = '#333';
+  ctx.lineWidth = 1;
+  ctx.strokeRect(10, 10, 150, 14);
+
+  // Texto HP
+  ctx.fillStyle = '#fff';
+  ctx.font = 'bold 11px monospace';
+  ctx.fillText(`HP  ${player.hp} / ${player.maxHp}`, 14, 21);
+
+  // Kills
+  ctx.fillStyle = '#aaa';
+  ctx.font = '11px monospace';
+  ctx.fillText(`Kills: ${enemies.filter(e => e.dead).length}`, W - 80, 21)
+}
 function loop() { update(); draw(); requestAnimationFrame(loop); }
 loop();
