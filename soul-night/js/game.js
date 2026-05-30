@@ -2,8 +2,8 @@ const canvas = document.getElementById('c');
 const ctx = canvas.getContext('2d');
 const W = 680, H = 480;
 const TILE = 32;
-const COLS = Math.floor(W / TILE);
-const ROWS = Math.floor(H / TILE);
+const COLS = 40;
+const ROWS = 30;
 
 // --- Mapa ---
 function generateMap() {
@@ -79,8 +79,9 @@ const bullets = [];
 const keys = {};
 const mouse = { x: W / 2, y: H / 2, down: false };
 let lastShot = 0;
-let kills = 0;
 const SHOT_RATE = 300;
+let kills = 0;
+let camX = 0, camY = 0;
 
 // --- Colisión con muros ---
 function collidesWithWall(x, y, size) {
@@ -110,6 +111,15 @@ canvas.addEventListener('mouseup',   () => mouse.down = false);
 
 // --- Update ---
 function update() {
+  // Cámara primero para que el ángulo sea correcto
+  camX = Math.max(0, Math.min(player.x - W / 2, COLS * TILE - W));
+  camY = Math.max(0, Math.min(player.y - H / 2, ROWS * TILE - H));
+
+  // Ángulo hacia mouse en coordenadas de mundo
+  const worldMouseX = mouse.x + camX;
+  const worldMouseY = mouse.y + camY;
+  player.angle = Math.atan2(worldMouseY - player.y, worldMouseX - player.x);
+
   // Movimiento jugador
   let dx = 0, dy = 0;
   if (keys['a'] || keys['ArrowLeft'])  dx -= 1;
@@ -125,7 +135,6 @@ function update() {
   if (!collidesWithWall(nx, player.y, player.size)) player.x = nx;
   if (!collidesWithWall(player.x, ny, player.size)) player.y = ny;
 
-  player.angle = Math.atan2(mouse.y - player.y, mouse.x - player.x);
   if (player.iframes > 0) player.iframes--;
 
   // Disparar
@@ -149,7 +158,6 @@ function update() {
     const hitWall = ty < 0 || ty >= ROWS || tx < 0 || tx >= COLS || map[ty][tx] === 1;
     if (b.life <= 0 || hitWall) { bullets.splice(i, 1); continue; }
 
-    // Bala vs enemigos
     let hit = false;
     for (const e of enemies) {
       if (e.dead) continue;
@@ -178,7 +186,6 @@ function update() {
       if (!collidesWithWall(e.x, eny, e.size)) e.y = eny;
     }
 
-    // Enemigo toca jugador
     if (player.iframes === 0 && elen < e.size + player.size) {
       player.hp -= 10;
       player.iframes = 40;
@@ -189,6 +196,9 @@ function update() {
 // --- Draw ---
 function draw() {
   ctx.clearRect(0, 0, W, H);
+
+  ctx.save();
+  ctx.translate(-camX, -camY);
 
   // Tiles
   for (let y = 0; y < ROWS; y++) {
@@ -217,38 +227,31 @@ function draw() {
   // Enemigos
   for (const e of enemies) {
     if (e.dead) continue;
-    // Parpadeo si golpea al jugador
     ctx.fillStyle = '#D4537E';
     ctx.beginPath();
     ctx.arc(e.x, e.y, e.size, 0, Math.PI * 2);
     ctx.fill();
-    // Barra HP
     ctx.fillStyle = '#333';
     ctx.fillRect(e.x - 14, e.y - 18, 28, 4);
     ctx.fillStyle = '#e24b4a';
     ctx.fillRect(e.x - 14, e.y - 18, 28 * (e.hp / e.maxHp), 4);
   }
 
-// Jugador (parpadea con iframes)
+  // Jugador
   if (player.iframes === 0 || Math.floor(player.iframes / 4) % 2 === 0) {
-
-    // Cuerpo y cabeza (solo flip horizontal)
     ctx.save();
     ctx.translate(player.x, player.y);
     const flip = Math.abs(player.angle) > Math.PI / 2 ? -1 : 1;
     ctx.scale(flip, 1);
 
-    // Cuerpo
     ctx.fillStyle = '#AFA9EC';
     ctx.fillRect(-6, -2, 12, 10);
 
-    // Cabeza
     ctx.fillStyle = '#CECBF6';
     ctx.beginPath();
     ctx.arc(0, -8, 7, 0, Math.PI * 2);
     ctx.fill();
 
-    // Ojo
     ctx.fillStyle = '#1a1a2e';
     ctx.beginPath();
     ctx.arc(3, -9, 2, 0, Math.PI * 2);
@@ -256,7 +259,7 @@ function draw() {
 
     ctx.restore();
 
-    // Arma (rotación libre hacia el mouse, independiente del flip)
+    // Arma
     ctx.save();
     ctx.translate(player.x, player.y);
     ctx.rotate(player.angle);
@@ -264,11 +267,13 @@ function draw() {
     ctx.fillRect(4, -2, 14, 4);
     ctx.restore();
   }
-// HUD fondo
+
+  ctx.restore(); // fin de cámara
+
+  // HUD (fijo en pantalla)
   ctx.fillStyle = 'rgba(0,0,0,0.5)';
   ctx.fillRect(0, 0, W, 36);
 
-  // Barra HP
   ctx.fillStyle = '#555';
   ctx.fillRect(10, 10, 150, 14);
   ctx.fillStyle = '#e24b4a';
@@ -277,15 +282,14 @@ function draw() {
   ctx.lineWidth = 1;
   ctx.strokeRect(10, 10, 150, 14);
 
-  // Texto HP
   ctx.fillStyle = '#fff';
   ctx.font = 'bold 11px monospace';
   ctx.fillText(`HP  ${player.hp} / ${player.maxHp}`, 14, 21);
 
-  // Kills
   ctx.fillStyle = '#aaa';
   ctx.font = '11px monospace';
-  ctx.fillText(`Kills: ${enemies.filter(e => e.dead).length}`, W - 80, 21)
+  ctx.fillText(`Kills: ${kills}`, W - 80, 21);
 }
+
 function loop() { update(); draw(); requestAnimationFrame(loop); }
 loop();
