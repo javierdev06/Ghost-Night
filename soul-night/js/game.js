@@ -230,16 +230,19 @@ function draw() {
 
 // Jugador (parpadea con iframes)
   if (player.iframes === 0 || Math.floor(player.iframes / 4) % 2 === 0) {
+
+    // Cuerpo y cabeza (solo flip horizontal)
     ctx.save();
     ctx.translate(player.x, player.y);
-    ctx.rotate(player.angle);
+    const flip = Math.abs(player.angle) > Math.PI / 2 ? -1 : 1;
+    ctx.scale(flip, 1);
 
     // Cuerpo
     ctx.fillStyle = '#AFA9EC';
-    ctx.fillRect(-6, -4, 12, 10);
+    ctx.fillRect(-6, -2, 12, 10);
 
     // Cabeza
-    ctx.fillStyle = '#CEC BF6';
+    ctx.fillStyle = '#CECBF6';
     ctx.beginPath();
     ctx.arc(0, -8, 7, 0, Math.PI * 2);
     ctx.fill();
@@ -247,13 +250,17 @@ function draw() {
     // Ojo
     ctx.fillStyle = '#1a1a2e';
     ctx.beginPath();
-    ctx.arc(4, -9, 2, 0, Math.PI * 2);
+    ctx.arc(3, -9, 2, 0, Math.PI * 2);
     ctx.fill();
 
-    // Arma
-    ctx.fillStyle = '#fac775';
-    ctx.fillRect(6, -2, 14, 4);
+    ctx.restore();
 
+    // Arma (rotación libre hacia el mouse, independiente del flip)
+    ctx.save();
+    ctx.translate(player.x, player.y);
+    ctx.rotate(player.angle);
+    ctx.fillStyle = '#fac775';
+    ctx.fillRect(4, -2, 14, 4);
     ctx.restore();
   }
   // HUD hp
