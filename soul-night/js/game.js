@@ -5,7 +5,7 @@ const TILE = 32;
 const COLS = Math.floor(W / TILE);
 const ROWS = Math.floor(H / TILE);
 
-// --- Mapa (1 = pared, 0 = piso) ---
+// --- Mapa ---
 function generateMap() {
   const map = Array.from({ length: ROWS }, () => Array(COLS).fill(1));
   const rooms = [];
@@ -33,7 +33,6 @@ function generateMap() {
     }
   }
 
-  // Conectar salas con pasillos
   for (let i = 1; i < rooms.length; i++) {
     const a = rooms[i - 1], b = rooms[i];
     let cx = Math.floor(a.x + a.w / 2);
@@ -56,10 +55,25 @@ const player = {
   y: (startRoom.y + Math.floor(startRoom.h / 2)) * TILE,
   size: 10,
   speed: 3,
-  vx: 0, vy: 0,
   angle: 0,
   hp: 100, maxHp: 100,
+  iframes: 0,
 };
+
+// --- Enemigos ---
+const enemies = [];
+for (let i = 1; i < rooms.length; i++) {
+  const r = rooms[i];
+  enemies.push({
+    x: (r.x + Math.floor(r.w / 2)) * TILE,
+    y: (r.y + Math.floor(r.h / 2)) * TILE,
+    size: 10,
+    speed: 1.2,
+    hp: 40, maxHp: 40,
+    angle: 0,
+    dead: false,
+  });
+}
 
 const bullets = [];
 const keys = {};
@@ -95,6 +109,7 @@ canvas.addEventListener('mouseup',   () => mouse.down = false);
 
 // --- Update ---
 function update() {
+  // Movimiento jugador
   let dx = 0, dy = 0;
   if (keys['a'] || keys['ArrowLeft'])  dx -= 1;
   if (keys['d'] || keys['ArrowRight']) dx += 1;
@@ -110,7 +125,9 @@ function update() {
   if (!collidesWithWall(player.x, ny, player.size)) player.y = ny;
 
   player.angle = Math.atan2(mouse.y - player.y, mouse.x - player.x);
+  if (player.iframes > 0) player.iframes--;
 
+  // Disparar
   const now = Date.now();
   if (mouse.down && now - lastShot > SHOT_RATE) {
     lastShot = now;
@@ -122,13 +139,49 @@ function update() {
     });
   }
 
+  // Actualizar balas
   for (let i = bullets.length - 1; i >= 0; i--) {
     const b = bullets[i];
     b.x += b.vx; b.y += b.vy; b.life--;
     const tx = Math.floor(b.x / TILE);
     const ty = Math.floor(b.y / TILE);
     const hitWall = ty < 0 || ty >= ROWS || tx < 0 || tx >= COLS || map[ty][tx] === 1;
-    if (b.life <= 0 || hitWall) bullets.splice(i, 1);
+    if (b.life <= 0 || hitWall) { bullets.splice(i, 1); continue; }
+
+    // Bala vs enemigos
+    let hit = false;
+    for (const e of enemies) {
+      if (e.dead) continue;
+      const ex = b.x - e.x, ey = b.y - e.y;
+      if (Math.sqrt(ex * ex + ey * ey) < e.size + 4) {
+        e.hp -= 20;
+        if (e.hp <= 0) e.dead = true;
+        bullets.splice(i, 1);
+        hit = true; break;
+      }
+    }
+    if (hit) continue;
+  }
+
+  // Mover enemigos
+  for (const e of enemies) {
+    if (e.dead) continue;
+    const edx = player.x - e.x;
+    const edy = player.y - e.y;
+    const elen = Math.sqrt(edx * edx + edy * edy);
+    e.angle = Math.atan2(edy, edx);
+    if (elen > 0) {
+      const enx = e.x + (edx / elen) * e.speed;
+      const eny = e.y + (edy / elen) * e.speed;
+      if (!collidesWithWall(enx, e.y, e.size)) e.x = enx;
+      if (!collidesWithWall(e.x, eny, e.size)) e.y = eny;
+    }
+
+    // Enemigo toca jugador
+    if (player.iframes === 0 && elen < e.size + player.size) {
+      player.hp -= 10;
+      player.iframes = 40;
+    }
   }
 }
 
@@ -160,21 +213,46 @@ function draw() {
     ctx.fill();
   }
 
-  // Jugador
-  ctx.fillStyle = '#AFA9EC';
-  ctx.beginPath();
-  ctx.arc(player.x, player.y, player.size, 0, Math.PI * 2);
-  ctx.fill();
+  // Enemigos
+  for (const e of enemies) {
+    if (e.dead) continue;
+    // Parpadeo si golpea al jugador
+    ctx.fillStyle = '#D4537E';
+    ctx.beginPath();
+    ctx.arc(e.x, e.y, e.size, 0, Math.PI * 2);
+    ctx.fill();
+    // Barra HP
+    ctx.fillStyle = '#333';
+    ctx.fillRect(e.x - 14, e.y - 18, 28, 4);
+    ctx.fillStyle = '#e24b4a';
+    ctx.fillRect(e.x - 14, e.y - 18, 28 * (e.hp / e.maxHp), 4);
+  }
 
-  ctx.strokeStyle = '#7F77DD';
-  ctx.lineWidth = 3;
-  ctx.beginPath();
-  ctx.moveTo(player.x, player.y);
-  ctx.lineTo(
-    player.x + Math.cos(player.angle) * 18,
-    player.y + Math.sin(player.angle) * 18
-  );
-  ctx.stroke();
+  // Jugador (parpadea con iframes)
+  if (player.iframes === 0 || Math.floor(player.iframes / 4) % 2 === 0) {
+    ctx.fillStyle = '#AFA9EC';
+    ctx.beginPath();
+    ctx.arc(player.x, player.y, player.size, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = '#7F77DD';
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.moveTo(player.x, player.y);
+    ctx.lineTo(
+      player.x + Math.cos(player.angle) * 18,
+      player.y + Math.sin(player.angle) * 18
+    );
+    ctx.stroke();
+  }
+
+  // HUD hp
+  ctx.fillStyle = '#333';
+  ctx.fillRect(10, 10, 120, 10);
+  ctx.fillStyle = '#e24b4a';
+  ctx.fillRect(10, 10, 120 * (player.hp / player.maxHp), 10);
+  ctx.fillStyle = '#fff';
+  ctx.font = '11px monospace';
+  ctx.fillText(`HP: ${player.hp}/${player.maxHp}`, 10, 34);
 }
 
 function loop() { update(); draw(); requestAnimationFrame(loop); }
