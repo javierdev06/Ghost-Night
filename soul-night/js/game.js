@@ -87,6 +87,18 @@ const SHOT_RATE = 300;
 let kills = 0;
 let camX = 0, camY = 0;
 
+// --- Armas ---
+const WEAPONS = [
+  { name: 'Pistola',    color: '#fac775', dmg: 20, speed: 7,  rate: 300,  ammo: Infinity },
+  { name: 'Escopeta',   color: '#F0997B', dmg: 12, speed: 6,  rate: 700,  ammo: 16, pellets: 5, spread: 0.3 },
+  { name: 'AK-47',      color: '#9FE1CB', dmg: 15, speed: 9,  rate: 110,  ammo: 30 },
+  { name: 'Laser',      color: '#B5D4F4', dmg: 8,  speed: 13, rate: 80,   ammo: 50 },
+  { name: 'Cohete',     color: '#E24B4A', dmg: 90, speed: 5,  rate: 1100, ammo: 4  },
+];
+
+let currentWeapon = WEAPONS[0];
+const drops = [];
+
 // --- Colisión con muros ---
 function collidesWithWall(x, y, size) {
   const corners = [
@@ -138,18 +150,23 @@ function update() {
 
   if (player.iframes > 0) player.iframes--;
 
-  const now = Date.now();
-  if (mouse.down && now - lastShot > SHOT_RATE) {
+ const now = Date.now();
+  if (mouse.down && now - lastShot > currentWeapon.rate) {
     lastShot = now;
-    bullets.push({
-      x: player.x, y: player.y,
-      vx: Math.cos(player.angle) * 7,
-      vy: Math.sin(player.angle) * 7,
-      life: 90,
-      owner: 'player',
-    });
+    const pellets = currentWeapon.pellets || 1;
+    for (let p = 0; p < pellets; p++) {
+      const spread = currentWeapon.spread || 0;
+      const angle = player.angle + (Math.random() - 0.5) * spread;
+      bullets.push({
+        x: player.x, y: player.y,
+        vx: Math.cos(angle) * currentWeapon.speed,
+        vy: Math.sin(angle) * currentWeapon.speed,
+        dmg: currentWeapon.dmg,
+        life: 90,
+        owner: 'player',
+      });
+    }
   }
-
   for (let i = bullets.length - 1; i >= 0; i--) {
     const b = bullets[i];
     b.x += b.vx; b.y += b.vy; b.life--;
@@ -173,8 +190,16 @@ function update() {
       if (e.dead) continue;
       const ex = b.x - e.x, ey = b.y - e.y;
       if (Math.sqrt(ex * ex + ey * ey) < e.size + 4) {
-        e.hp -= 20;
-        if (e.hp <= 0) { e.dead = true; kills++; }
+        e.hp -= b.dmg || 20;
+        if (e.hp <= 0) {
+          e.dead = true;
+          kills++;
+          // Soltar arma al azar (30% de probabilidad)
+          if (Math.random() < 0.3) {
+            const idx = Math.floor(Math.random() * WEAPONS.length);
+            drops.push({ x: e.x, y: e.y, weapon: WEAPONS[idx] });
+          }
+        }
         bullets.splice(i, 1);
         hit = true; break;
       }
@@ -219,6 +244,15 @@ function update() {
     if (player.iframes === 0 && elen < e.size + player.size) {
       player.hp -= 10;
       player.iframes = 40;
+    }
+  }
+  // Recoger armas del suelo
+  for (let i = drops.length - 1; i >= 0; i--) {
+    const d = drops[i];
+    const dx = player.x - d.x, dy = player.y - d.y;
+    if (Math.sqrt(dx * dx + dy * dy) < 20) {
+      currentWeapon = d.weapon;
+      drops.splice(i, 1);
     }
   }
 }
@@ -292,7 +326,20 @@ function draw() {
     ctx.fillRect(4, -2, 14, 4);
     ctx.restore();
   }
+  // Dibujar drops
+  for (const d of drops) {
+    ctx.fillStyle = d.weapon.color;
+    ctx.fillRect(d.x - 8, d.y - 4, 16, 8);
+    ctx.fillStyle = '#fff';
+    ctx.font = '8px monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText(d.weapon.name, d.x, d.y - 8);
+    ctx.textAlign = 'left';
+  }
 
+  ctx.restore();
+
+  // HUD
   ctx.restore();
 
   // HUD
