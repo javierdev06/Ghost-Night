@@ -341,17 +341,36 @@ function draw() {
   ctx.save();
   ctx.translate(-camX, -camY);
 
-  for (let y = 0; y < ROWS; y++) {
+ for (let y = 0; y < ROWS; y++) {
     for (let x = 0; x < COLS; x++) {
+      const px = x * TILE, py = y * TILE;
       if (map[y][x] === 1) {
+        // Pared base
         ctx.fillStyle = '#16213e';
-        ctx.fillRect(x * TILE, y * TILE, TILE, TILE);
-        ctx.fillStyle = '#0f0f23';
-        ctx.fillRect(x * TILE, y * TILE, TILE, 1);
-        ctx.fillRect(x * TILE, y * TILE, 1, TILE);
+        ctx.fillRect(px, py, TILE, TILE);
+        // Borde superior iluminado
+        ctx.fillStyle = '#1f2f5a';
+        ctx.fillRect(px, py, TILE, 3);
+        // Borde izquierdo
+        ctx.fillStyle = '#1a2850';
+        ctx.fillRect(px, py, 3, TILE);
+        // Sombra inferior
+        ctx.fillStyle = '#0a0f1e';
+        ctx.fillRect(px, py + TILE - 3, TILE, 3);
       } else {
+        // Piso base
         ctx.fillStyle = '#0e2140';
-        ctx.fillRect(x * TILE, y * TILE, TILE, TILE);
+        ctx.fillRect(px, py, TILE, TILE);
+        // Detalle de piso cada 4 tiles
+        if ((x + y) % 4 === 0) {
+          ctx.fillStyle = '#0a1b30';
+          ctx.fillRect(px + 2, py + 2, TILE - 4, TILE - 4);
+        }
+        // Punto decorativo
+        if ((x * 3 + y * 7) % 11 === 0) {
+          ctx.fillStyle = '#0d2348';
+          ctx.fillRect(px + TILE / 2 - 1, py + TILE / 2 - 1, 2, 2);
+        }
       }
     }
   }
