@@ -84,18 +84,15 @@ for (let i = 1; i < rooms.length; i++) {
     speed: type === 'melee' ? 1.4 : 0.7,
     hp: type === 'melee' ? 40 : 30,
     maxHp: type === 'melee' ? 40 : 30,
-    angle: 0,
-    type,
-    lastShot: 0,
-    dead: false,
+    angle: 0, type, lastShot: 0, dead: false,
   });
 }
 
 const bullets = [];
+const particles = [];
 const keys = {};
 const mouse = { x: W / 2, y: H / 2, down: false };
 let lastShot = 0;
-const SHOT_RATE = 300;
 let kills = 0;
 let camX = 0, camY = 0;
 let gameRunning = true;
@@ -116,6 +113,51 @@ function collidesWithWall(x, y, size) {
   return false;
 }
 
+// --- Partículas ---
+function spawnParticles(x, y, color, count) {
+  for (let i = 0; i < count; i++) {
+    const angle = Math.random() * Math.PI * 2;
+    const speed = 1 + Math.random() * 3;
+    particles.push({
+      x, y,
+      vx: Math.cos(angle) * speed,
+      vy: Math.sin(angle) * speed,
+      life: 20 + Math.floor(Math.random() * 20),
+      maxLife: 40,
+      color,
+    });
+  }
+}
+
+// --- Siguiente piso ---
+function nextLevel() {
+  level++;
+  const data = generateMap();
+  map = data.map;
+  rooms = data.rooms;
+  const r = rooms[0];
+  player.x = (r.x + Math.floor(r.w / 2)) * TILE;
+  player.y = (r.y + Math.floor(r.h / 2)) * TILE;
+  player.hp = Math.min(player.maxHp, player.hp + 30);
+  bullets.length = 0;
+  drops.length = 0;
+  particles.length = 0;
+  enemies.length = 0;
+  for (let i = 1; i < rooms.length; i++) {
+    const rm = rooms[i];
+    const type = i % 2 === 0 ? 'ranged' : 'melee';
+    enemies.push({
+      x: (rm.x + Math.floor(rm.w / 2)) * TILE,
+      y: (rm.y + Math.floor(rm.h / 2)) * TILE,
+      size: 10,
+      speed: type === 'melee' ? 1.4 + level * 0.1 : 0.7 + level * 0.05,
+      hp: (type === 'melee' ? 40 : 30) + level * 10,
+      maxHp: (type === 'melee' ? 40 : 30) + level * 10,
+      angle: 0, type, lastShot: 0, dead: false,
+    });
+  }
+}
+
 function gameOver() {
   gameRunning = false;
 }
@@ -133,33 +175,6 @@ canvas.addEventListener('mousemove', e => {
 });
 canvas.addEventListener('mousedown', () => mouse.down = true);
 canvas.addEventListener('mouseup',   () => mouse.down = false);
-
-function nextLevel() {
-  level++;
-  const data = generateMap();
-  map = data.map;
-  rooms = data.rooms;
-  const r = rooms[0];
-  player.x = (r.x + Math.floor(r.w / 2)) * TILE;
-  player.y = (r.y + Math.floor(r.h / 2)) * TILE;
-  player.hp = Math.min(player.maxHp, player.hp + 30);
-  bullets.length = 0;
-  drops.length = 0;
-  enemies.length = 0;
-  for (let i = 1; i < rooms.length; i++) {
-    const rm = rooms[i];
-    const type = i % 2 === 0 ? 'ranged' : 'melee';
-    enemies.push({
-      x: (rm.x + Math.floor(rm.w / 2)) * TILE,
-      y: (rm.y + Math.floor(rm.h / 2)) * TILE,
-      size: 10,
-      speed: type === 'melee' ? 1.4 + level * 0.1 : 0.7 + level * 0.05,
-      hp: (type === 'melee' ? 40 : 30) + level * 10,
-      maxHp: (type === 'melee' ? 40 : 30) + level * 10,
-      angle: 0, type, lastShot: 0, dead: false,
-    });
-  }
-}
 
 // --- Update ---
 function update() {
@@ -217,6 +232,7 @@ function update() {
       if (Math.sqrt(dx * dx + dy * dy) < player.size + 4 && player.iframes === 0) {
         player.hp -= 15;
         player.iframes = 30;
+        spawnParticles(player.x, player.y, '#e24b4a', 6);
         bullets.splice(i, 1);
       }
       continue;
@@ -231,6 +247,7 @@ function update() {
         if (e.hp <= 0) {
           e.dead = true;
           kills++;
+          spawnParticles(e.x, e.y, e.type === 'melee' ? '#D4537E' : '#7F77DD', 10);
           if (Math.random() < 0.3) {
             const idx = Math.floor(Math.random() * WEAPONS.length);
             drops.push({ x: e.x, y: e.y, weapon: WEAPONS[idx] });
@@ -280,6 +297,7 @@ function update() {
     if (player.iframes === 0 && elen < e.size + player.size) {
       player.hp -= 10;
       player.iframes = 40;
+      spawnParticles(player.x, player.y, '#e24b4a', 6);
     }
   }
 
@@ -292,7 +310,19 @@ function update() {
       drops.splice(i, 1);
     }
   }
-// Siguiente piso si todos los enemigos están muertos
+
+  // Actualizar partículas
+  for (let i = particles.length - 1; i >= 0; i--) {
+    const p = particles[i];
+    p.x += p.vx;
+    p.y += p.vy;
+    p.vx *= 0.92;
+    p.vy *= 0.92;
+    p.life--;
+    if (p.life <= 0) particles.splice(i, 1);
+  }
+
+  // Siguiente piso
   if (enemies.length > 0 && enemies.every(e => e.dead)) {
     nextLevel();
   }
@@ -336,6 +366,16 @@ function draw() {
     ctx.fillText(d.weapon.name, d.x, d.y - 8);
     ctx.textAlign = 'left';
   }
+
+  // Partículas
+  for (const p of particles) {
+    ctx.globalAlpha = p.life / p.maxLife;
+    ctx.fillStyle = p.color;
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, 3, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.globalAlpha = 1;
 
   // Balas
   for (const b of bullets) {
@@ -415,10 +455,6 @@ function draw() {
   ctx.fillStyle = '#aaa';
   ctx.font = '11px monospace';
   ctx.fillText(`Piso: ${level}  Kills: ${kills}`, W - 140, 21);
-
-  ctx.fillStyle = '#aaa';
-  ctx.font = '11px monospace';
-  ctx.fillText(`Piso: ${level}  Kills: ${kills}`, W - 140, 21);
 }
 
 // --- Loop ---
@@ -443,4 +479,4 @@ function loop() {
   requestAnimationFrame(loop);
 }
 
-loop(); 
+loop();
