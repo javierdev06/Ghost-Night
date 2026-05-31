@@ -81,12 +81,13 @@ const player = {
   hp: 100, maxHp: 100, iframes: 0,
 };
 
-// --- Enemigos ---
-const enemies = [];
-const drops = [];
-const hpDrops = [];
-const bullets = [];
+// --- Arrays ---
+const enemies  = [];
+const drops    = [];
+const hpDrops  = [];
+const bullets  = [];
 const particles = [];
+const revealedTiles = new Set();
 
 function spawnEnemies() {
   enemies.length = 0;
@@ -118,14 +119,14 @@ function spawnEnemies() {
 
 spawnEnemies();
 
-const keys = {};
+const keys  = {};
 const mouse = { x: W / 2, y: H / 2, down: false };
-let lastShot = 0;
-let kills = 0;
+let lastShot    = 0;
+let kills       = 0;
 let camX = 0, camY = 0;
 let gameRunning = false;
 
-// --- Colisión con muros ---
+// --- Colisión ---
 function collidesWithWall(x, y, size) {
   const corners = [
     [x - size, y - size], [x + size, y - size],
@@ -155,20 +156,35 @@ function spawnParticles(x, y, color, count) {
   }
 }
 
+// --- Revelar tiles ---
+function updateRevealedTiles() {
+  const px = Math.floor(player.x / TILE);
+  const py = Math.floor(player.y / TILE);
+  const radius = 4;
+  for (let dy = -radius; dy <= radius; dy++) {
+    for (let dx = -radius; dx <= radius; dx++) {
+      if (dx * dx + dy * dy <= radius * radius) {
+        revealedTiles.add(`${px + dx},${py + dy}`);
+      }
+    }
+  }
+}
+
 // --- Siguiente piso ---
 function nextLevel() {
   level++;
   const data = generateMap();
-  map = data.map;
+  map   = data.map;
   rooms = data.rooms;
   const r = rooms[0];
   player.x = (r.x + Math.floor(r.w / 2)) * TILE;
   player.y = (r.y + Math.floor(r.h / 2)) * TILE;
   player.hp = Math.min(player.maxHp, player.hp + 30);
-  bullets.length = 0;
-  drops.length = 0;
-  hpDrops.length = 0;
+  bullets.length  = 0;
+  drops.length    = 0;
+  hpDrops.length  = 0;
   particles.length = 0;
+  revealedTiles.clear();
   spawnEnemies();
 }
 
@@ -209,11 +225,11 @@ function startGame() {
 function confirmChar() {
   document.getElementById('charSelect').style.display = 'none';
   const hero = HEROES[selectedHero];
-  player.hp = hero.hp;
-  player.maxHp = hero.hp;
-  player.speed = hero.speed;
-  currentWeapon = WEAPONS.find(w => w.name === hero.weapon) || WEAPONS[0];
-  gameRunning = true;
+  player.hp       = hero.hp;
+  player.maxHp    = hero.hp;
+  player.speed    = hero.speed;
+  currentWeapon   = WEAPONS.find(w => w.name === hero.weapon) || WEAPONS[0];
+  gameRunning     = true;
   loop();
 }
 
@@ -235,6 +251,8 @@ canvas.addEventListener('mouseup',   () => mouse.down = false);
 function update() {
   camX = Math.max(0, Math.min(player.x - W / 2, COLS * TILE - W));
   camY = Math.max(0, Math.min(player.y - H / 2, ROWS * TILE - H));
+
+  updateRevealedTiles();
 
   const worldMouseX = mouse.x + camX;
   const worldMouseY = mouse.y + camY;
@@ -262,7 +280,7 @@ function update() {
     const pellets = currentWeapon.pellets || 1;
     for (let p = 0; p < pellets; p++) {
       const spread = currentWeapon.spread || 0;
-      const angle = player.angle + (Math.random() - 0.5) * spread;
+      const angle  = player.angle + (Math.random() - 0.5) * spread;
       bullets.push({
         x: player.x, y: player.y,
         vx: Math.cos(angle) * currentWeapon.speed,
@@ -283,8 +301,7 @@ function update() {
     if (b.owner === 'enemy') {
       const dx = b.x - player.x, dy = b.y - player.y;
       if (Math.sqrt(dx * dx + dy * dy) < player.size + 4 && player.iframes === 0) {
-        player.hp -= 15;
-        player.iframes = 30;
+        player.hp -= 15; player.iframes = 30;
         spawnParticles(player.x, player.y, '#e24b4a', 6);
         bullets.splice(i, 1);
       }
@@ -300,10 +317,7 @@ function update() {
         if (e.hp <= 0) {
           e.dead = true; kills++;
           spawnParticles(e.x, e.y, e.type === 'boss' ? '#E24B4A' : e.type === 'melee' ? '#D4537E' : '#7F77DD', 14);
-          if (Math.random() < 0.3) {
-            const idx = Math.floor(Math.random() * WEAPONS.length);
-            drops.push({ x: e.x, y: e.y, weapon: WEAPONS[idx] });
-          }
+          if (Math.random() < 0.3) drops.push({ x: e.x, y: e.y, weapon: WEAPONS[Math.floor(Math.random() * WEAPONS.length)] });
           if (Math.random() < 0.4) hpDrops.push({ x: e.x, y: e.y, amount: 20 });
         }
         bullets.splice(i, 1); hit = true; break;
@@ -397,9 +411,18 @@ function draw() {
   ctx.save();
   ctx.translate(-camX, -camY);
 
+  // Tiles
   for (let y = 0; y < ROWS; y++) {
     for (let x = 0; x < COLS; x++) {
       const px = x * TILE, py = y * TILE;
+      const isRevealed = revealedTiles.has(`${x},${y}`);
+
+      if (!isRevealed) {
+        ctx.fillStyle = '#000';
+        ctx.fillRect(px, py, TILE, TILE);
+        continue;
+      }
+
       if (map[y][x] === 1) {
         ctx.fillStyle = '#16213e';
         ctx.fillRect(px, py, TILE, TILE);
@@ -445,10 +468,8 @@ function draw() {
     ctx.beginPath(); ctx.arc(d.x, d.y, 12, 0, Math.PI * 2); ctx.stroke();
     ctx.save();
     ctx.translate(d.x, d.y);
-    ctx.fillStyle = d.weapon.color;
-    ctx.fillRect(-8, -2, 16, 4);
-    ctx.fillStyle = '#aaa';
-    ctx.fillRect(4, -1.5, 8, 3);
+    ctx.fillStyle = d.weapon.color; ctx.fillRect(-8, -2, 16, 4);
+    ctx.fillStyle = '#aaa'; ctx.fillRect(4, -1.5, 8, 3);
     ctx.restore();
     ctx.fillStyle = d.weapon.color;
     ctx.font = 'bold 9px monospace';
@@ -474,6 +495,10 @@ function draw() {
   // Enemigos
   for (const e of enemies) {
     if (e.dead) continue;
+    const etx = Math.floor(e.x / TILE);
+    const ety = Math.floor(e.y / TILE);
+    if (!revealedTiles.has(`${etx},${ety}`)) continue;
+
     ctx.save();
     ctx.translate(e.x, e.y);
 
@@ -495,8 +520,7 @@ function draw() {
       ctx.arc(Math.cos(e.angle) * 4, Math.sin(e.angle) * 4, 5, 0, Math.PI * 2);
       ctx.fill();
     } else if (e.type === 'melee') {
-      ctx.fillStyle = '#D4537E';
-      ctx.fillRect(-7, -4, 14, 12);
+      ctx.fillStyle = '#D4537E'; ctx.fillRect(-7, -4, 14, 12);
       ctx.fillStyle = '#ED93B1';
       ctx.beginPath(); ctx.arc(0, -9, 7, 0, Math.PI * 2); ctx.fill();
       ctx.fillStyle = '#1a1a2e';
@@ -505,13 +529,11 @@ function draw() {
       ctx.fillStyle = '#aaa'; ctx.fillRect(6, -2, 10, 3);
       ctx.restore();
     } else {
-      ctx.fillStyle = '#7F77DD';
-      ctx.fillRect(-6, -4, 12, 11);
+      ctx.fillStyle = '#7F77DD'; ctx.fillRect(-6, -4, 12, 11);
       ctx.fillStyle = '#AFA9EC';
       ctx.beginPath(); ctx.arc(0, -9, 7, 0, Math.PI * 2); ctx.fill();
       ctx.fillStyle = '#534AB7';
-      ctx.fillRect(-7, -17, 14, 5);
-      ctx.fillRect(-4, -22, 8, 6);
+      ctx.fillRect(-7, -17, 14, 5); ctx.fillRect(-4, -22, 8, 6);
       ctx.fillStyle = '#1a1a2e';
       ctx.beginPath(); ctx.arc(3, -10, 2, 0, Math.PI * 2); ctx.fill();
       ctx.save(); ctx.rotate(e.angle);
@@ -542,8 +564,7 @@ function draw() {
     ctx.translate(player.x, player.y);
     const flip = Math.abs(player.angle) > Math.PI / 2 ? -1 : 1;
     ctx.scale(flip, 1);
-    ctx.fillStyle = '#AFA9EC';
-    ctx.fillRect(-6, -2, 12, 10);
+    ctx.fillStyle = '#AFA9EC'; ctx.fillRect(-6, -2, 12, 10);
     ctx.fillStyle = '#CECBF6';
     ctx.beginPath(); ctx.arc(0, -8, 7, 0, Math.PI * 2); ctx.fill();
     ctx.fillStyle = '#1a1a2e';
