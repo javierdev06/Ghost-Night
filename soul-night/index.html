@@ -6,6 +6,11 @@
   <link rel="stylesheet" href="css/style.css" />
 </head>
 <body>
+  <div id="levelMap">
+  <h2>MAPA DE NIVELES</h2>
+  <div class="level-grid" id="levelGrid"></div>
+  <button class="back-btn" onclick="showMenu()">← Volver</button>
+    </div>
   <div id="container">
     <canvas id="c" width="680" height="480"></canvas>
 
@@ -13,6 +18,7 @@
       <h1>👻 GHOST NIGHT</h1>
       <p>Un roguelike de mazmorras</p>
       <button onclick="startGame()">JUGAR</button>
+      <button onclick="showLevelMap()" style="background:transparent; color:#7F77DD; border:1px solid #534AB7; padding:10px 32px; font-size:14px; font-family:monospace; border-radius:6px; cursor:pointer;">NIVELES</button>
     </div>
 
     <div id="charSelect">

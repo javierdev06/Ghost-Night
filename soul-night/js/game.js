@@ -48,6 +48,8 @@ function generateMap() {
 
 let { map, rooms } = generateMap();
 let level = 1;
+let maxLevelReached = 1;
+const TOTAL_LEVELS = 15;
 
 // --- Armas ---
 const WEAPONS = [
@@ -121,10 +123,10 @@ spawnEnemies();
 
 const keys  = {};
 const mouse = { x: W / 2, y: H / 2, down: false };
-let lastShot     = 0;
-let kills        = 0;
+let lastShot      = 0;
+let kills         = 0;
 let camX = 0, camY = 0;
-let gameRunning  = false;
+let gameRunning   = false;
 let levelComplete = false;
 
 // --- Colisión ---
@@ -191,6 +193,7 @@ function nextLevel() {
 
 function showLevelComplete() {
   levelComplete = true;
+  if (level >= maxLevelReached) maxLevelReached = level + 1;
   const el = document.getElementById('levelComplete');
   el.style.display = 'flex';
   document.getElementById('levelCompleteMsg').textContent =
@@ -206,6 +209,52 @@ function continueGame() {
 function gameOver() { gameRunning = false; }
 
 // --- Menú ---
+function showMenu() {
+  document.getElementById('levelMap').style.display    = 'none';
+  document.getElementById('charSelect').style.display  = 'none';
+  document.getElementById('menu').style.display        = 'flex';
+}
+
+function showLevelMap() {
+  document.getElementById('menu').style.display     = 'none';
+  document.getElementById('levelMap').style.display = 'flex';
+  buildLevelGrid();
+}
+
+function buildLevelGrid() {
+  const grid = document.getElementById('levelGrid');
+  grid.innerHTML = '';
+  for (let i = 1; i <= TOTAL_LEVELS; i++) {
+    const btn = document.createElement('div');
+    const completed = i < maxLevelReached;
+    const unlocked  = i <= maxLevelReached;
+    btn.className = 'level-btn' + (completed ? ' completed' : unlocked ? ' unlocked' : '');
+    btn.innerHTML = `
+      <span>${i}</span>
+      <span class="level-stars">${completed ? '★★★' : unlocked ? '☆☆☆' : '🔒'}</span>
+    `;
+    if (unlocked) btn.onclick = () => startLevel(i);
+    grid.appendChild(btn);
+  }
+}
+
+function startLevel(n) {
+  document.getElementById('levelMap').style.display = 'none';
+  level = n;
+  const data = generateMap();
+  map = data.map; rooms = data.rooms;
+  const r = rooms[0];
+  player.x = (r.x + Math.floor(r.w / 2)) * TILE;
+  player.y = (r.y + Math.floor(r.h / 2)) * TILE;
+  player.hp = player.maxHp;
+  bullets.length = drops.length = hpDrops.length = particles.length = 0;
+  revealedTiles.clear();
+  spawnEnemies();
+  gameRunning   = true;
+  levelComplete = false;
+  loop();
+}
+
 function buildCharGrid() {
   const grid = document.getElementById('charGrid');
   grid.innerHTML = '';
@@ -232,7 +281,7 @@ function buildCharGrid() {
 }
 
 function startGame() {
-  document.getElementById('menu').style.display = 'none';
+  document.getElementById('menu').style.display     = 'none';
   document.getElementById('charSelect').style.display = 'flex';
   buildCharGrid();
 }
@@ -245,6 +294,7 @@ function confirmChar() {
   player.speed  = hero.speed;
   currentWeapon = WEAPONS.find(w => w.name === hero.weapon) || WEAPONS[0];
   gameRunning   = true;
+  levelComplete = false;
   loop();
 }
 
@@ -416,9 +466,7 @@ function update() {
     if (p.life <= 0) particles.splice(i, 1);
   }
 
-  if (enemies.length > 0 && enemies.every(e => e.dead) && !levelComplete) {
-    showLevelComplete();
-  }
+  if (enemies.length > 0 && enemies.every(e => e.dead) && !levelComplete) showLevelComplete();
   if (player.hp <= 0) { player.hp = 0; gameOver(); }
 }
 
@@ -432,33 +480,20 @@ function draw() {
     for (let x = 0; x < COLS; x++) {
       const px = x * TILE, py = y * TILE;
       const isRevealed = revealedTiles.has(`${x},${y}`);
-
       if (!isRevealed) {
         ctx.fillStyle = '#000';
         ctx.fillRect(px, py, TILE, TILE);
         continue;
       }
-
       if (map[y][x] === 1) {
-        ctx.fillStyle = '#16213e';
-        ctx.fillRect(px, py, TILE, TILE);
-        ctx.fillStyle = '#1f2f5a';
-        ctx.fillRect(px, py, TILE, 3);
-        ctx.fillStyle = '#1a2850';
-        ctx.fillRect(px, py, 3, TILE);
-        ctx.fillStyle = '#0a0f1e';
-        ctx.fillRect(px, py + TILE - 3, TILE, 3);
+        ctx.fillStyle = '#16213e'; ctx.fillRect(px, py, TILE, TILE);
+        ctx.fillStyle = '#1f2f5a'; ctx.fillRect(px, py, TILE, 3);
+        ctx.fillStyle = '#1a2850'; ctx.fillRect(px, py, 3, TILE);
+        ctx.fillStyle = '#0a0f1e'; ctx.fillRect(px, py + TILE - 3, TILE, 3);
       } else {
-        ctx.fillStyle = '#0e2140';
-        ctx.fillRect(px, py, TILE, TILE);
-        if ((x + y) % 4 === 0) {
-          ctx.fillStyle = '#0a1b30';
-          ctx.fillRect(px + 2, py + 2, TILE - 4, TILE - 4);
-        }
-        if ((x * 3 + y * 7) % 11 === 0) {
-          ctx.fillStyle = '#0d2348';
-          ctx.fillRect(px + TILE / 2 - 1, py + TILE / 2 - 1, 2, 2);
-        }
+        ctx.fillStyle = '#0e2140'; ctx.fillRect(px, py, TILE, TILE);
+        if ((x + y) % 4 === 0) { ctx.fillStyle = '#0a1b30'; ctx.fillRect(px + 2, py + 2, TILE - 4, TILE - 4); }
+        if ((x * 3 + y * 7) % 11 === 0) { ctx.fillStyle = '#0d2348'; ctx.fillRect(px + TILE / 2 - 1, py + TILE / 2 - 1, 2, 2); }
       }
     }
   }
@@ -468,11 +503,8 @@ function draw() {
     ctx.beginPath(); ctx.arc(h.x, h.y, 12, 0, Math.PI * 2); ctx.fill();
     ctx.strokeStyle = '#9FE1CB'; ctx.lineWidth = 1.5;
     ctx.beginPath(); ctx.arc(h.x, h.y, 10, 0, Math.PI * 2); ctx.stroke();
-    ctx.fillStyle = '#9FE1CB';
-    ctx.font = 'bold 11px monospace';
-    ctx.textAlign = 'center';
-    ctx.fillText('+', h.x, h.y + 4);
-    ctx.textAlign = 'left';
+    ctx.fillStyle = '#9FE1CB'; ctx.font = 'bold 11px monospace';
+    ctx.textAlign = 'center'; ctx.fillText('+', h.x, h.y + 4); ctx.textAlign = 'left';
   }
 
   for (const d of drops) {
@@ -480,16 +512,12 @@ function draw() {
     ctx.beginPath(); ctx.arc(d.x, d.y, 14, 0, Math.PI * 2); ctx.fill();
     ctx.strokeStyle = d.weapon.color; ctx.lineWidth = 1.5;
     ctx.beginPath(); ctx.arc(d.x, d.y, 12, 0, Math.PI * 2); ctx.stroke();
-    ctx.save();
-    ctx.translate(d.x, d.y);
+    ctx.save(); ctx.translate(d.x, d.y);
     ctx.fillStyle = d.weapon.color; ctx.fillRect(-8, -2, 16, 4);
     ctx.fillStyle = '#aaa'; ctx.fillRect(4, -1.5, 8, 3);
     ctx.restore();
-    ctx.fillStyle = d.weapon.color;
-    ctx.font = 'bold 9px monospace';
-    ctx.textAlign = 'center';
-    ctx.fillText(d.weapon.name, d.x, d.y - 16);
-    ctx.textAlign = 'left';
+    ctx.fillStyle = d.weapon.color; ctx.font = 'bold 9px monospace';
+    ctx.textAlign = 'center'; ctx.fillText(d.weapon.name, d.x, d.y - 16); ctx.textAlign = 'left';
   }
 
   for (const p of particles) {
@@ -506,12 +534,8 @@ function draw() {
 
   for (const e of enemies) {
     if (e.dead) continue;
-    const etx = Math.floor(e.x / TILE);
-    const ety = Math.floor(e.y / TILE);
-    if (!revealedTiles.has(`${etx},${ety}`)) continue;
-
-    ctx.save();
-    ctx.translate(e.x, e.y);
+    if (!revealedTiles.has(`${Math.floor(e.x/TILE)},${Math.floor(e.y/TILE)}`)) continue;
+    ctx.save(); ctx.translate(e.x, e.y);
 
     if (e.type === 'boss') {
       const pulse = Math.sin(Date.now() / 200) * 2;
@@ -520,134 +544,81 @@ function draw() {
       for (let i = 0; i < 5; i++) {
         const a = (i * Math.PI * 2 / 5) - Math.PI / 2;
         const r = i % 2 === 0 ? e.size + pulse : e.size * 0.5;
-        i === 0 ? ctx.moveTo(Math.cos(a) * r, Math.sin(a) * r)
-                : ctx.lineTo(Math.cos(a) * r, Math.sin(a) * r);
+        i === 0 ? ctx.moveTo(Math.cos(a)*r, Math.sin(a)*r) : ctx.lineTo(Math.cos(a)*r, Math.sin(a)*r);
       }
       ctx.closePath(); ctx.fill();
-      ctx.fillStyle = '#fff';
-      ctx.beginPath(); ctx.arc(0, 0, 8, 0, Math.PI * 2); ctx.fill();
-      ctx.fillStyle = '#1a1a2e';
-      ctx.beginPath();
-      ctx.arc(Math.cos(e.angle) * 4, Math.sin(e.angle) * 4, 5, 0, Math.PI * 2);
-      ctx.fill();
+      ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(0, 0, 8, 0, Math.PI*2); ctx.fill();
+      ctx.fillStyle = '#1a1a2e'; ctx.beginPath();
+      ctx.arc(Math.cos(e.angle)*4, Math.sin(e.angle)*4, 5, 0, Math.PI*2); ctx.fill();
     } else if (e.type === 'melee') {
       ctx.fillStyle = '#D4537E'; ctx.fillRect(-7, -4, 14, 12);
-      ctx.fillStyle = '#ED93B1';
-      ctx.beginPath(); ctx.arc(0, -9, 7, 0, Math.PI * 2); ctx.fill();
-      ctx.fillStyle = '#1a1a2e';
-      ctx.beginPath(); ctx.arc(3, -10, 2, 0, Math.PI * 2); ctx.fill();
-      ctx.save(); ctx.rotate(e.angle);
-      ctx.fillStyle = '#aaa'; ctx.fillRect(6, -2, 10, 3);
-      ctx.restore();
+      ctx.fillStyle = '#ED93B1'; ctx.beginPath(); ctx.arc(0, -9, 7, 0, Math.PI*2); ctx.fill();
+      ctx.fillStyle = '#1a1a2e'; ctx.beginPath(); ctx.arc(3, -10, 2, 0, Math.PI*2); ctx.fill();
+      ctx.save(); ctx.rotate(e.angle); ctx.fillStyle = '#aaa'; ctx.fillRect(6, -2, 10, 3); ctx.restore();
     } else {
       ctx.fillStyle = '#7F77DD'; ctx.fillRect(-6, -4, 12, 11);
-      ctx.fillStyle = '#AFA9EC';
-      ctx.beginPath(); ctx.arc(0, -9, 7, 0, Math.PI * 2); ctx.fill();
-      ctx.fillStyle = '#534AB7';
-      ctx.fillRect(-7, -17, 14, 5); ctx.fillRect(-4, -22, 8, 6);
-      ctx.fillStyle = '#1a1a2e';
-      ctx.beginPath(); ctx.arc(3, -10, 2, 0, Math.PI * 2); ctx.fill();
-      ctx.save(); ctx.rotate(e.angle);
-      ctx.fillStyle = '#fac775'; ctx.fillRect(6, -2, 12, 3);
-      ctx.restore();
+      ctx.fillStyle = '#AFA9EC'; ctx.beginPath(); ctx.arc(0, -9, 7, 0, Math.PI*2); ctx.fill();
+      ctx.fillStyle = '#534AB7'; ctx.fillRect(-7, -17, 14, 5); ctx.fillRect(-4, -22, 8, 6);
+      ctx.fillStyle = '#1a1a2e'; ctx.beginPath(); ctx.arc(3, -10, 2, 0, Math.PI*2); ctx.fill();
+      ctx.save(); ctx.rotate(e.angle); ctx.fillStyle = '#fac775'; ctx.fillRect(6, -2, 12, 3); ctx.restore();
     }
-
     ctx.restore();
 
     const barW = e.type === 'boss' ? 60 : 30;
-    ctx.fillStyle = '#1a1a2e';
-    ctx.fillRect(e.x - barW / 2, e.y - e.size - 10, barW, 5);
+    ctx.fillStyle = '#1a1a2e'; ctx.fillRect(e.x - barW/2, e.y - e.size - 10, barW, 5);
     ctx.fillStyle = e.type === 'boss' ? '#E24B4A' : e.type === 'melee' ? '#D4537E' : '#7F77DD';
-    ctx.fillRect(e.x - barW / 2, e.y - e.size - 10, barW * (e.hp / e.maxHp), 5);
-
+    ctx.fillRect(e.x - barW/2, e.y - e.size - 10, barW * (e.hp/e.maxHp), 5);
     if (e.type === 'boss') {
-      ctx.fillStyle = '#E24B4A';
-      ctx.font = 'bold 12px monospace';
-      ctx.textAlign = 'center';
-      ctx.fillText('BOSS', e.x, e.y - e.size - 14);
-      ctx.textAlign = 'left';
+      ctx.fillStyle = '#E24B4A'; ctx.font = 'bold 12px monospace';
+      ctx.textAlign = 'center'; ctx.fillText('BOSS', e.x, e.y - e.size - 14); ctx.textAlign = 'left';
     }
   }
 
   if (player.iframes === 0 || Math.floor(player.iframes / 4) % 2 === 0) {
-    ctx.save();
-    ctx.translate(player.x, player.y);
+    ctx.save(); ctx.translate(player.x, player.y);
     const flip = Math.abs(player.angle) > Math.PI / 2 ? -1 : 1;
     ctx.scale(flip, 1);
     ctx.fillStyle = '#AFA9EC'; ctx.fillRect(-6, -2, 12, 10);
-    ctx.fillStyle = '#CECBF6';
-    ctx.beginPath(); ctx.arc(0, -8, 7, 0, Math.PI * 2); ctx.fill();
-    ctx.fillStyle = '#1a1a2e';
-    ctx.beginPath(); ctx.arc(3, -9, 2, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#CECBF6'; ctx.beginPath(); ctx.arc(0, -8, 7, 0, Math.PI*2); ctx.fill();
+    ctx.fillStyle = '#1a1a2e'; ctx.beginPath(); ctx.arc(3, -9, 2, 0, Math.PI*2); ctx.fill();
     ctx.restore();
-
-    ctx.save();
-    ctx.translate(player.x, player.y);
-    ctx.rotate(player.angle);
-    ctx.fillStyle = currentWeapon.color;
-    ctx.fillRect(4, -2, 14, 4);
+    ctx.save(); ctx.translate(player.x, player.y); ctx.rotate(player.angle);
+    ctx.fillStyle = currentWeapon.color; ctx.fillRect(4, -2, 14, 4);
     ctx.restore();
   }
 
   ctx.restore();
 
   // HUD
-  ctx.fillStyle = 'rgba(0,0,0,0.5)';
-  ctx.fillRect(0, 0, W, 36);
-  ctx.fillStyle = '#555';
-  ctx.fillRect(10, 10, 150, 14);
-  ctx.fillStyle = '#e24b4a';
-  ctx.fillRect(10, 10, 150 * (player.hp / player.maxHp), 14);
-  ctx.strokeStyle = '#333'; ctx.lineWidth = 1;
-  ctx.strokeRect(10, 10, 150, 14);
-  ctx.fillStyle = '#fff';
-  ctx.font = 'bold 11px monospace';
+  ctx.fillStyle = 'rgba(0,0,0,0.5)'; ctx.fillRect(0, 0, W, 36);
+  ctx.fillStyle = '#555'; ctx.fillRect(10, 10, 150, 14);
+  ctx.fillStyle = '#e24b4a'; ctx.fillRect(10, 10, 150 * (player.hp/player.maxHp), 14);
+  ctx.strokeStyle = '#333'; ctx.lineWidth = 1; ctx.strokeRect(10, 10, 150, 14);
+  ctx.fillStyle = '#fff'; ctx.font = 'bold 11px monospace';
   ctx.fillText(`HP  ${player.hp} / ${player.maxHp}`, 14, 21);
-
-  ctx.fillStyle = currentWeapon.color;
-  ctx.font = 'bold 11px monospace';
-  ctx.textAlign = 'center';
-  ctx.fillText(currentWeapon.name, W / 2, 21);
-  ctx.textAlign = 'left';
-
+  ctx.fillStyle = currentWeapon.color; ctx.font = 'bold 11px monospace';
+  ctx.textAlign = 'center'; ctx.fillText(currentWeapon.name, W/2, 21); ctx.textAlign = 'left';
   if (level % 5 === 0) {
-    ctx.fillStyle = '#E24B4A';
-    ctx.font = 'bold 11px monospace';
-    ctx.textAlign = 'center';
-    ctx.fillText('⚠ PISO DEL JEFE ⚠', W / 2, 34);
-    ctx.textAlign = 'left';
+    ctx.fillStyle = '#E24B4A'; ctx.font = 'bold 11px monospace';
+    ctx.textAlign = 'center'; ctx.fillText('⚠ PISO DEL JEFE ⚠', W/2, 34); ctx.textAlign = 'left';
   }
-
-  ctx.fillStyle = '#aaa';
-  ctx.font = '11px monospace';
+  ctx.fillStyle = '#aaa'; ctx.font = '11px monospace';
   ctx.fillText(`Piso: ${level}  Kills: ${kills}`, W - 140, 21);
 }
 
 // --- Loop ---
 function loop() {
   if (!gameRunning) {
-    ctx.fillStyle = 'rgba(0,0,0,0.7)';
-    ctx.fillRect(0, 0, W, H);
-    ctx.fillStyle = '#e24b4a';
-    ctx.font = 'bold 40px monospace';
-    ctx.textAlign = 'center';
-    ctx.fillText('GAME OVER', W / 2, H / 2 - 20);
-    ctx.fillStyle = '#aaa';
-    ctx.font = '16px monospace';
-    ctx.fillText(`Piso: ${level}  Kills: ${kills}`, W / 2, H / 2 + 20);
-    ctx.fillText('Presiona R para reiniciar', W / 2, H / 2 + 50);
+    ctx.fillStyle = 'rgba(0,0,0,0.7)'; ctx.fillRect(0, 0, W, H);
+    ctx.fillStyle = '#e24b4a'; ctx.font = 'bold 40px monospace';
+    ctx.textAlign = 'center'; ctx.fillText('GAME OVER', W/2, H/2 - 20);
+    ctx.fillStyle = '#aaa'; ctx.font = '16px monospace';
+    ctx.fillText(`Piso: ${level}  Kills: ${kills}`, W/2, H/2 + 20);
+    ctx.fillText('Presiona R para reiniciar', W/2, H/2 + 50);
     ctx.textAlign = 'left';
-    requestAnimationFrame(loop);
-    return;
+    requestAnimationFrame(loop); return;
   }
-
-  if (levelComplete) {
-    draw();
-    requestAnimationFrame(loop);
-    return;
-  }
-
-  update();
-  draw();
+  if (levelComplete) { draw(); requestAnimationFrame(loop); return; }
+  update(); draw();
   requestAnimationFrame(loop);
 }

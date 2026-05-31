@@ -146,3 +146,81 @@ canvas { display: block; background: #1a1a2e; cursor: crosshair; }
 }
 
 #levelComplete button:hover { background: #7F77DD; }
+#levelMap {
+  display: none;
+  position: absolute;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
+  background: #0d0d1c;
+  z-index: 10;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 24px;
+}
+
+#levelMap h2 {
+  color: #AFA9EC;
+  font-family: monospace;
+  font-size: 24px;
+  letter-spacing: 2px;
+}
+
+.level-grid {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 12px;
+}
+
+.level-btn {
+  width: 90px; height: 90px;
+  border-radius: 10px;
+  border: 2px solid #333;
+  background: #12122a;
+  color: #555;
+  font-family: monospace;
+  font-size: 22px;
+  font-weight: bold;
+  cursor: default;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+}
+
+.level-btn.unlocked {
+  border-color: #534AB7;
+  color: #AFA9EC;
+  cursor: pointer;
+}
+
+.level-btn.unlocked:hover {
+  background: #1a1a3a;
+  border-color: #7F77DD;
+}
+
+.level-btn.completed {
+  border-color: #9FE1CB;
+  color: #9FE1CB;
+  background: #0e2030;
+  cursor: pointer;
+}
+
+.level-btn .level-stars {
+  font-size: 10px;
+  color: #fac775;
+}
+
+#levelMap button.back-btn {
+  background: transparent;
+  color: #555;
+  border: 1px solid #333;
+  padding: 8px 24px;
+  font-family: monospace;
+  font-size: 13px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+#levelMap button.back-btn:hover { color: #ddd; border-color: #888; }
