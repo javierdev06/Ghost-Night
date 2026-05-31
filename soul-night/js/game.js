@@ -128,6 +128,7 @@ let kills         = 0;
 let camX = 0, camY = 0;
 let gameRunning   = false;
 let levelComplete = false;
+let paused = false;
 
 // --- Colisión ---
 function collidesWithWall(x, y, size) {
@@ -302,6 +303,9 @@ function confirmChar() {
 window.addEventListener('keydown', e => {
   keys[e.key] = true;
   if ((e.key === 'r' || e.key === 'R') && !gameRunning) location.reload();
+  if (e.key === 'Escape' && gameRunning) {
+    paused ? resumeGame() : pauseGame();
+  }
 });
 window.addEventListener('keyup', e => keys[e.key] = false);
 canvas.addEventListener('mousemove', e => {
@@ -311,6 +315,25 @@ canvas.addEventListener('mousemove', e => {
 });
 canvas.addEventListener('mousedown', () => mouse.down = true);
 canvas.addEventListener('mouseup',   () => mouse.down = false);
+
+function pauseGame() {
+  paused = true;
+  document.getElementById('pauseMenu').style.display = 'flex';
+}
+
+function resumeGame() {
+  paused = false;
+  document.getElementById('pauseMenu').style.display = 'none';
+}
+
+function quitToMenu() {
+  paused = false;
+  gameRunning = false;
+  levelComplete = false;
+  document.getElementById('pauseMenu').style.display = 'none';
+  document.getElementById('levelComplete').style.display = 'none';
+  document.getElementById('menu').style.display = 'flex';
+}
 
 // --- Update ---
 function update() {
@@ -619,6 +642,7 @@ function loop() {
     requestAnimationFrame(loop); return;
   }
   if (levelComplete) { draw(); requestAnimationFrame(loop); return; }
+  if (paused) { requestAnimationFrame(loop); return; }
   update(); draw();
   requestAnimationFrame(loop);
 }
