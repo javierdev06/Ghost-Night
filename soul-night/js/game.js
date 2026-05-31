@@ -404,17 +404,66 @@ function draw() {
     ctx.fill();
   }
 
-  // Enemigos
+// Enemigos
   for (const e of enemies) {
     if (e.dead) continue;
+
+    ctx.save();
+    ctx.translate(e.x, e.y);
+
+    if (e.type === 'melee') {
+      // Cuerpo
+      ctx.fillStyle = '#D4537E';
+      ctx.fillRect(-7, -4, 14, 12);
+      // Cabeza
+      ctx.fillStyle = '#ED93B1';
+      ctx.beginPath();
+      ctx.arc(0, -9, 7, 0, Math.PI * 2);
+      ctx.fill();
+      // Ojo
+      ctx.fillStyle = '#1a1a2e';
+      ctx.beginPath();
+      ctx.arc(3, -10, 2, 0, Math.PI * 2);
+      ctx.fill();
+      // Arma melee (cuchillo)
+      ctx.save();
+      ctx.rotate(e.angle);
+      ctx.fillStyle = '#aaa';
+      ctx.fillRect(6, -2, 10, 3);
+      ctx.restore();
+    } else {
+      // Cuerpo mago
+      ctx.fillStyle = '#7F77DD';
+      ctx.fillRect(-6, -4, 12, 11);
+      // Cabeza
+      ctx.fillStyle = '#AFA9EC';
+      ctx.beginPath();
+      ctx.arc(0, -9, 7, 0, Math.PI * 2);
+      ctx.fill();
+      // Sombrero
+      ctx.fillStyle = '#534AB7';
+      ctx.fillRect(-7, -17, 14, 5);
+      ctx.fillRect(-4, -22, 8, 6);
+      // Ojo
+      ctx.fillStyle = '#1a1a2e';
+      ctx.beginPath();
+      ctx.arc(3, -10, 2, 0, Math.PI * 2);
+      ctx.fill();
+      // Varita
+      ctx.save();
+      ctx.rotate(e.angle);
+      ctx.fillStyle = '#fac775';
+      ctx.fillRect(6, -2, 12, 3);
+      ctx.restore();
+    }
+
+    ctx.restore();
+
+    // Barra HP
+    ctx.fillStyle = '#1a1a2e';
+    ctx.fillRect(e.x - 15, e.y - 26, 30, 5);
     ctx.fillStyle = e.type === 'melee' ? '#D4537E' : '#7F77DD';
-    ctx.beginPath();
-    ctx.arc(e.x, e.y, e.size, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.fillStyle = '#333';
-    ctx.fillRect(e.x - 14, e.y - 18, 28, 4);
-    ctx.fillStyle = '#e24b4a';
-    ctx.fillRect(e.x - 14, e.y - 18, 28 * (e.hp / e.maxHp), 4);
+    ctx.fillRect(e.x - 15, e.y - 26, 30 * (e.hp / e.maxHp), 5);
   }
 
   // Jugador
