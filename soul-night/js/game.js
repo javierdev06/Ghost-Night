@@ -99,6 +99,7 @@ const SHOT_RATE = 300;
 let kills = 0;
 let camX = 0, camY = 0;
 let gameRunning = true;
+let level = 1;
 
 // --- Colisión con muros ---
 function collidesWithWall(x, y, size) {
@@ -132,6 +133,33 @@ canvas.addEventListener('mousemove', e => {
 });
 canvas.addEventListener('mousedown', () => mouse.down = true);
 canvas.addEventListener('mouseup',   () => mouse.down = false);
+
+function nextLevel() {
+  level++;
+  const data = generateMap();
+  map = data.map;
+  rooms = data.rooms;
+  const r = rooms[0];
+  player.x = (r.x + Math.floor(r.w / 2)) * TILE;
+  player.y = (r.y + Math.floor(r.h / 2)) * TILE;
+  player.hp = Math.min(player.maxHp, player.hp + 30);
+  bullets.length = 0;
+  drops.length = 0;
+  enemies.length = 0;
+  for (let i = 1; i < rooms.length; i++) {
+    const rm = rooms[i];
+    const type = i % 2 === 0 ? 'ranged' : 'melee';
+    enemies.push({
+      x: (rm.x + Math.floor(rm.w / 2)) * TILE,
+      y: (rm.y + Math.floor(rm.h / 2)) * TILE,
+      size: 10,
+      speed: type === 'melee' ? 1.4 + level * 0.1 : 0.7 + level * 0.05,
+      hp: (type === 'melee' ? 40 : 30) + level * 10,
+      maxHp: (type === 'melee' ? 40 : 30) + level * 10,
+      angle: 0, type, lastShot: 0, dead: false,
+    });
+  }
+}
 
 // --- Update ---
 function update() {
@@ -264,6 +292,10 @@ function update() {
       drops.splice(i, 1);
     }
   }
+// Siguiente piso si todos los enemigos están muertos
+  if (enemies.length > 0 && enemies.every(e => e.dead)) {
+    nextLevel();
+  }
 
   // Game Over
   if (player.hp <= 0) {
@@ -382,7 +414,11 @@ function draw() {
 
   ctx.fillStyle = '#aaa';
   ctx.font = '11px monospace';
-  ctx.fillText(`Kills: ${kills}`, W - 80, 21);
+  ctx.fillText(`Piso: ${level}  Kills: ${kills}`, W - 140, 21);
+
+  ctx.fillStyle = '#aaa';
+  ctx.font = '11px monospace';
+  ctx.fillText(`Piso: ${level}  Kills: ${kills}`, W - 140, 21);
 }
 
 // --- Loop ---
@@ -407,4 +443,4 @@ function loop() {
   requestAnimationFrame(loop);
 }
 
-loop();
+loop(); 
