@@ -375,14 +375,36 @@ function draw() {
     }
   }
 
-  // Drops
+// Drops
   for (const d of drops) {
+    // Brillo de fondo
+    ctx.fillStyle = d.weapon.color + '33';
+    ctx.beginPath();
+    ctx.arc(d.x, d.y, 14, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Borde
+    ctx.strokeStyle = d.weapon.color;
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.arc(d.x, d.y, 12, 0, Math.PI * 2);
+    ctx.stroke();
+
+    // Arma dibujada
+    ctx.save();
+    ctx.translate(d.x, d.y);
     ctx.fillStyle = d.weapon.color;
-    ctx.fillRect(d.x - 8, d.y - 4, 16, 8);
-    ctx.fillStyle = '#fff';
-    ctx.font = '8px monospace';
+    ctx.fillRect(-8, -2, 16, 4);
+    // Cañón
+    ctx.fillStyle = '#aaa';
+    ctx.fillRect(4, -1.5, 8, 3);
+    ctx.restore();
+
+    // Nombre
+    ctx.fillStyle = d.weapon.color;
+    ctx.font = 'bold 9px monospace';
     ctx.textAlign = 'center';
-    ctx.fillText(d.weapon.name, d.x, d.y - 8);
+    ctx.fillText(d.weapon.name, d.x, d.y - 16);
     ctx.textAlign = 'left';
   }
 
