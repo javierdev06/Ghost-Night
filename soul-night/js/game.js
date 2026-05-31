@@ -82,10 +82,10 @@ const player = {
 };
 
 // --- Arrays ---
-const enemies  = [];
-const drops    = [];
-const hpDrops  = [];
-const bullets  = [];
+const enemies   = [];
+const drops     = [];
+const hpDrops   = [];
+const bullets   = [];
 const particles = [];
 const revealedTiles = new Set();
 
@@ -121,10 +121,11 @@ spawnEnemies();
 
 const keys  = {};
 const mouse = { x: W / 2, y: H / 2, down: false };
-let lastShot    = 0;
-let kills       = 0;
+let lastShot     = 0;
+let kills        = 0;
 let camX = 0, camY = 0;
-let gameRunning = false;
+let gameRunning  = false;
+let levelComplete = false;
 
 // --- Colisión ---
 function collidesWithWall(x, y, size) {
@@ -180,12 +181,26 @@ function nextLevel() {
   player.x = (r.x + Math.floor(r.w / 2)) * TILE;
   player.y = (r.y + Math.floor(r.h / 2)) * TILE;
   player.hp = Math.min(player.maxHp, player.hp + 30);
-  bullets.length  = 0;
-  drops.length    = 0;
-  hpDrops.length  = 0;
+  bullets.length   = 0;
+  drops.length     = 0;
+  hpDrops.length   = 0;
   particles.length = 0;
   revealedTiles.clear();
   spawnEnemies();
+}
+
+function showLevelComplete() {
+  levelComplete = true;
+  const el = document.getElementById('levelComplete');
+  el.style.display = 'flex';
+  document.getElementById('levelCompleteMsg').textContent =
+    `Piso ${level} completado — Kills totales: ${kills}`;
+}
+
+function continueGame() {
+  document.getElementById('levelComplete').style.display = 'none';
+  levelComplete = false;
+  nextLevel();
 }
 
 function gameOver() { gameRunning = false; }
@@ -225,11 +240,11 @@ function startGame() {
 function confirmChar() {
   document.getElementById('charSelect').style.display = 'none';
   const hero = HEROES[selectedHero];
-  player.hp       = hero.hp;
-  player.maxHp    = hero.hp;
-  player.speed    = hero.speed;
-  currentWeapon   = WEAPONS.find(w => w.name === hero.weapon) || WEAPONS[0];
-  gameRunning     = true;
+  player.hp     = hero.hp;
+  player.maxHp  = hero.hp;
+  player.speed  = hero.speed;
+  currentWeapon = WEAPONS.find(w => w.name === hero.weapon) || WEAPONS[0];
+  gameRunning   = true;
   loop();
 }
 
@@ -401,7 +416,9 @@ function update() {
     if (p.life <= 0) particles.splice(i, 1);
   }
 
-  if (enemies.length > 0 && enemies.every(e => e.dead)) nextLevel();
+  if (enemies.length > 0 && enemies.every(e => e.dead) && !levelComplete) {
+    showLevelComplete();
+  }
   if (player.hp <= 0) { player.hp = 0; gameOver(); }
 }
 
@@ -411,7 +428,6 @@ function draw() {
   ctx.save();
   ctx.translate(-camX, -camY);
 
-  // Tiles
   for (let y = 0; y < ROWS; y++) {
     for (let x = 0; x < COLS; x++) {
       const px = x * TILE, py = y * TILE;
@@ -447,7 +463,6 @@ function draw() {
     }
   }
 
-  // HP drops
   for (const h of hpDrops) {
     ctx.fillStyle = '#9FE1CB33';
     ctx.beginPath(); ctx.arc(h.x, h.y, 12, 0, Math.PI * 2); ctx.fill();
@@ -460,7 +475,6 @@ function draw() {
     ctx.textAlign = 'left';
   }
 
-  // Drops armas
   for (const d of drops) {
     ctx.fillStyle = d.weapon.color + '33';
     ctx.beginPath(); ctx.arc(d.x, d.y, 14, 0, Math.PI * 2); ctx.fill();
@@ -478,7 +492,6 @@ function draw() {
     ctx.textAlign = 'left';
   }
 
-  // Partículas
   for (const p of particles) {
     ctx.globalAlpha = p.life / p.maxLife;
     ctx.fillStyle = p.color;
@@ -486,13 +499,11 @@ function draw() {
   }
   ctx.globalAlpha = 1;
 
-  // Balas
   for (const b of bullets) {
     ctx.fillStyle = b.owner === 'enemy' ? '#e24b4a' : currentWeapon.color;
     ctx.beginPath(); ctx.arc(b.x, b.y, 4, 0, Math.PI * 2); ctx.fill();
   }
 
-  // Enemigos
   for (const e of enemies) {
     if (e.dead) continue;
     const etx = Math.floor(e.x / TILE);
@@ -558,7 +569,6 @@ function draw() {
     }
   }
 
-  // Jugador
   if (player.iframes === 0 || Math.floor(player.iframes / 4) % 2 === 0) {
     ctx.save();
     ctx.translate(player.x, player.y);
@@ -630,6 +640,13 @@ function loop() {
     requestAnimationFrame(loop);
     return;
   }
+
+  if (levelComplete) {
+    draw();
+    requestAnimationFrame(loop);
+    return;
+  }
+
   update();
   draw();
   requestAnimationFrame(loop);

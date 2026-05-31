@@ -107,3 +107,42 @@ canvas { display: block; background: #1a1a2e; cursor: crosshair; }
   cursor: pointer;
 }
 #charSelect button:hover { background: #7F77DD; }
+
+#levelComplete {
+  display: none;
+  position: absolute;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
+  background: rgba(0,0,0,0.85);
+  z-index: 10;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 20px;
+}
+
+#levelComplete h2 {
+  color: #9FE1CB;
+  font-family: monospace;
+  font-size: 32px;
+  letter-spacing: 2px;
+}
+
+#levelComplete p {
+  color: #aaa;
+  font-family: monospace;
+  font-size: 14px;
+}
+
+#levelComplete button {
+  background: #534AB7;
+  color: white;
+  border: none;
+  padding: 12px 40px;
+  font-size: 16px;
+  font-family: monospace;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+#levelComplete button:hover { background: #7F77DD; }

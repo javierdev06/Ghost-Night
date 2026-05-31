@@ -10,7 +10,7 @@
     <canvas id="c" width="680" height="480"></canvas>
 
     <div id="menu">
-      <h1>☽ GHOST NIGHT</h1>
+      <h1>👻 GHOST NIGHT</h1>
       <p>Un roguelike de mazmorras</p>
       <button onclick="startGame()">JUGAR</button>
     </div>
@@ -20,8 +20,14 @@
       <div class="char-grid" id="charGrid"></div>
       <button onclick="confirmChar()">ELEGIR</button>
     </div>
-  </div>
 
+    <div id="levelComplete">
+      <h2 id="levelCompleteTitle">NIVEL COMPLETADO</h2>
+      <p id="levelCompleteMsg"></p>
+      <button onclick="continueGame()">SIGUIENTE NIVEL →</button>
+    </div>
+
+  </div>
   <script src="js/game.js"></script>
 </body>
 </html>
