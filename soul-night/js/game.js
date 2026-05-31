@@ -73,6 +73,13 @@ const HEROES = [
 ];
 
 let selectedHero = 0;
+let selectedSkin = 'policia';
+
+const SKINS = [
+  { id: 'policia',   name: 'Policia'   },
+  { id: 'fantasma',  name: 'Fantasma'  },
+  { id: 'cebra',     name: 'Cebra'     },
+];
 
 // --- Jugador ---
 const startRoom = rooms[0];
@@ -131,7 +138,7 @@ let levelComplete = false;
 let paused        = false;
 let loopRunning   = false;
 
-// --- Colisión ---
+// --- Colision ---
 function collidesWithWall(x, y, size) {
   const corners = [
     [x - size, y - size], [x + size, y - size],
@@ -210,15 +217,112 @@ function continueGame() {
 
 function gameOver() { gameRunning = false; }
 
+// --- Skin ---
+function drawPlayerSkin(c, skin) {
+  if (skin === 'policia') {
+    c.fillStyle = '#1a3a5c';
+    c.fillRect(-5, 4, 4, 8);
+    c.fillRect(1, 4, 4, 8);
+    c.fillStyle = '#111';
+    c.fillRect(-6, 10, 5, 3);
+    c.fillRect(1, 10, 5, 3);
+    c.fillStyle = '#1a3a6e';
+    c.fillRect(-7, -3, 14, 9);
+    c.fillStyle = '#fac775';
+    c.fillRect(-4, -1, 4, 3);
+    c.fillStyle = '#f0c090';
+    c.fillRect(-2, -5, 4, 4);
+    c.fillStyle = '#f0c090';
+    c.beginPath(); c.arc(0, -10, 6, 0, Math.PI * 2); c.fill();
+    c.fillStyle = '#1a1a2e';
+    c.beginPath(); c.arc(3, -11, 1.5, 0, Math.PI * 2); c.fill();
+    c.fillStyle = '#c0785a';
+    c.fillRect(1, -8, 3, 1.5);
+    c.fillStyle = '#1a3a6e';
+    c.fillRect(-7, -17, 14, 5);
+    c.fillRect(-5, -22, 10, 6);
+    c.fillStyle = '#122a50';
+    c.fillRect(-8, -13, 16, 2);
+    c.fillStyle = '#fac775';
+    c.fillRect(-2, -19, 4, 3);
+    c.fillRect(-7, -15, 14, 2);
+
+  } else if (skin === 'fantasma') {
+    c.fillStyle = '#ddeeff';
+    c.beginPath();
+    c.moveTo(-8, 10);
+    c.quadraticCurveTo(-10, 16, -5, 13);
+    c.quadraticCurveTo(0, 17, 5, 13);
+    c.quadraticCurveTo(10, 16, 8, 10);
+    c.lineTo(8, -8);
+    c.arc(0, -8, 8, 0, Math.PI, true);
+    c.closePath();
+    c.fill();
+    c.fillStyle = '#ffffff';
+    c.beginPath(); c.arc(-2, -10, 3, 0, Math.PI * 2); c.fill();
+    c.fillStyle = '#1a1a2e';
+    c.beginPath(); c.arc(-3, -8, 2, 0, Math.PI * 2); c.fill();
+    c.beginPath(); c.arc(3, -8, 2, 0, Math.PI * 2); c.fill();
+    c.fillStyle = '#fff';
+    c.beginPath(); c.arc(-2, -9, 0.8, 0, Math.PI * 2); c.fill();
+    c.beginPath(); c.arc(4, -9, 0.8, 0, Math.PI * 2); c.fill();
+    c.fillStyle = '#1a1a2e';
+    c.beginPath();
+    c.arc(0, -4, 3, 0, Math.PI);
+    c.fill();
+
+  } else if (skin === 'cebra') {
+    c.fillStyle = '#fff';
+    c.fillRect(-5, 4, 4, 8);
+    c.fillRect(1, 4, 4, 8);
+    c.fillStyle = '#222';
+    c.fillRect(-5, 6, 4, 2);
+    c.fillRect(1, 8, 4, 2);
+    c.fillStyle = '#333';
+    c.fillRect(-6, 10, 5, 3);
+    c.fillRect(1, 10, 5, 3);
+    c.fillStyle = '#f0f0f0';
+    c.fillRect(-7, -3, 14, 9);
+    c.fillStyle = '#222';
+    c.fillRect(-7, -2, 5, 2);
+    c.fillRect(-7, 2, 4, 2);
+    c.fillRect(3, -1, 4, 2);
+    c.fillRect(2, 3, 5, 2);
+    c.fillStyle = '#f0f0f0';
+    c.fillRect(-3, -6, 6, 5);
+    c.beginPath(); c.arc(0, -10, 7, 0, Math.PI * 2); c.fill();
+    c.fillStyle = '#222';
+    c.fillRect(-6, -13, 3, 3);
+    c.fillRect(2, -14, 3, 4);
+    c.fillRect(-3, -16, 5, 2);
+    c.fillStyle = '#1a1a2e';
+    c.beginPath(); c.arc(3, -11, 2, 0, Math.PI * 2); c.fill();
+    c.fillStyle = '#fff';
+    c.beginPath(); c.arc(4, -12, 0.8, 0, Math.PI * 2); c.fill();
+    c.fillStyle = '#ffaaaa';
+    c.fillRect(4, -9, 3, 2);
+    c.fillStyle = '#f0f0f0';
+    c.fillRect(-7, -18, 4, 6);
+    c.fillRect(3, -18, 4, 6);
+    c.fillStyle = '#ffcccc';
+    c.fillRect(-6, -17, 2, 4);
+    c.fillRect(4, -17, 2, 4);
+    c.fillStyle = '#222';
+    c.fillRect(-3, -20, 6, 4);
+    c.fillRect(-2, -18, 4, 8);
+  }
+}
+
 // --- Menu ---
 function showMenu() {
   loopRunning   = false;
   gameRunning   = false;
-  document.getElementById('levelMap').style.display   = 'none';
-  document.getElementById('charSelect').style.display = 'none';
-  document.getElementById('pauseMenu').style.display  = 'none';
+  document.getElementById('levelMap').style.display      = 'none';
+  document.getElementById('charSelect').style.display    = 'none';
+  document.getElementById('skinSelect').style.display    = 'none';
+  document.getElementById('pauseMenu').style.display     = 'none';
   document.getElementById('levelComplete').style.display = 'none';
-  document.getElementById('menu').style.display       = 'flex';
+  document.getElementById('menu').style.display          = 'flex';
 }
 
 function showLevelMap() {
@@ -294,6 +398,51 @@ function startGame() {
 
 function confirmChar() {
   document.getElementById('charSelect').style.display = 'none';
+  showSkinSelect();
+}
+
+function showSkinSelect() {
+  document.getElementById('skinSelect').style.display = 'flex';
+  buildSkinGrid();
+}
+
+function buildSkinGrid() {
+  const grid = document.getElementById('skinGrid');
+  grid.innerHTML = '';
+  SKINS.forEach(s => {
+    const card = document.createElement('div');
+    card.className = 'skin-card' + (s.id === selectedSkin ? ' selected' : '');
+
+    const previewCanvas = document.createElement('canvas');
+    previewCanvas.width  = 60;
+    previewCanvas.height = 70;
+    previewCanvas.className = 'skin-preview';
+    card.appendChild(previewCanvas);
+
+    const nameEl = document.createElement('div');
+    nameEl.className = 'skin-name';
+    nameEl.textContent = s.name;
+    card.appendChild(nameEl);
+
+    card.onclick = () => {
+      document.querySelectorAll('.skin-card').forEach(c => c.classList.remove('selected'));
+      card.classList.add('selected');
+      selectedSkin = s.id;
+      buildSkinGrid();
+    };
+
+    grid.appendChild(card);
+
+    const pc = previewCanvas.getContext('2d');
+    pc.save();
+    pc.translate(30, 45);
+    drawPlayerSkin(pc, s.id);
+    pc.restore();
+  });
+}
+
+function confirmSkin() {
+  document.getElementById('skinSelect').style.display = 'none';
   const hero = HEROES[selectedHero];
   player.hp     = hero.hp;
   player.maxHp  = hero.hp;
@@ -343,9 +492,9 @@ function resumeGame() {
 }
 
 function quitToMenu() {
-  paused      = false;
-  loopRunning = false;
-  gameRunning = false;
+  paused        = false;
+  loopRunning   = false;
+  gameRunning   = false;
   levelComplete = false;
   document.getElementById('pauseMenu').style.display     = 'none';
   document.getElementById('levelComplete').style.display = 'none';
@@ -614,16 +763,22 @@ function draw() {
     }
   }
 
+  // Jugador
   if (player.iframes === 0 || Math.floor(player.iframes / 4) % 2 === 0) {
-    ctx.save(); ctx.translate(player.x, player.y);
+    ctx.save();
+    ctx.translate(player.x, player.y);
     const flip = Math.abs(player.angle) > Math.PI / 2 ? -1 : 1;
     ctx.scale(flip, 1);
-    ctx.fillStyle = '#AFA9EC'; ctx.fillRect(-6, -2, 12, 10);
-    ctx.fillStyle = '#CECBF6'; ctx.beginPath(); ctx.arc(0, -8, 7, 0, Math.PI*2); ctx.fill();
-    ctx.fillStyle = '#1a1a2e'; ctx.beginPath(); ctx.arc(3, -9, 2, 0, Math.PI*2); ctx.fill();
+    drawPlayerSkin(ctx, selectedSkin);
     ctx.restore();
-    ctx.save(); ctx.translate(player.x, player.y); ctx.rotate(player.angle);
-    ctx.fillStyle = currentWeapon.color; ctx.fillRect(4, -2, 14, 4);
+
+    ctx.save();
+    ctx.translate(player.x, player.y);
+    ctx.rotate(player.angle);
+    ctx.fillStyle = '#555';
+    ctx.fillRect(4, -2, 16, 4);
+    ctx.fillStyle = '#333';
+    ctx.fillRect(16, -3, 4, 6);
     ctx.restore();
   }
 
@@ -642,8 +797,9 @@ function draw() {
     ctx.fillStyle = '#E24B4A'; ctx.font = 'bold 11px monospace';
     ctx.textAlign = 'center'; ctx.fillText('PISO DEL JEFE', W/2, 34); ctx.textAlign = 'left';
   }
+  const enemiesLeft = enemies.filter(e => !e.dead).length;
   ctx.fillStyle = '#aaa'; ctx.font = '11px monospace';
-  ctx.fillText(`Piso: ${level}  Kills: ${kills}`, W - 140, 21);
+  ctx.fillText(`Piso: ${level}  Enemigos: ${enemiesLeft}`, W - 160, 21);
 }
 
 // --- Loop ---
