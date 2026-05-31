@@ -48,6 +48,18 @@ function generateMap() {
 
 let { map, rooms } = generateMap();
 
+// --- Armas ---
+const WEAPONS = [
+  { name: 'Pistola',  color: '#fac775', dmg: 20, speed: 7,  rate: 300,  ammo: Infinity },
+  { name: 'Escopeta', color: '#F0997B', dmg: 12, speed: 6,  rate: 700,  ammo: 16, pellets: 5, spread: 0.3 },
+  { name: 'AK-47',    color: '#9FE1CB', dmg: 15, speed: 9,  rate: 110,  ammo: 30 },
+  { name: 'Laser',    color: '#B5D4F4', dmg: 8,  speed: 13, rate: 80,   ammo: 50 },
+  { name: 'Cohete',   color: '#E24B4A', dmg: 90, speed: 5,  rate: 1100, ammo: 4  },
+];
+
+let currentWeapon = WEAPONS[0];
+const drops = [];
+
 // --- Jugador ---
 const startRoom = rooms[0];
 const player = {
@@ -86,18 +98,7 @@ let lastShot = 0;
 const SHOT_RATE = 300;
 let kills = 0;
 let camX = 0, camY = 0;
-
-// --- Armas ---
-const WEAPONS = [
-  { name: 'Pistola',    color: '#fac775', dmg: 20, speed: 7,  rate: 300,  ammo: Infinity },
-  { name: 'Escopeta',   color: '#F0997B', dmg: 12, speed: 6,  rate: 700,  ammo: 16, pellets: 5, spread: 0.3 },
-  { name: 'AK-47',      color: '#9FE1CB', dmg: 15, speed: 9,  rate: 110,  ammo: 30 },
-  { name: 'Laser',      color: '#B5D4F4', dmg: 8,  speed: 13, rate: 80,   ammo: 50 },
-  { name: 'Cohete',     color: '#E24B4A', dmg: 90, speed: 5,  rate: 1100, ammo: 4  },
-];
-
-let currentWeapon = WEAPONS[0];
-const drops = [];
+let gameRunning = true;
 
 // --- Colisión con muros ---
 function collidesWithWall(x, y, size) {
@@ -114,9 +115,16 @@ function collidesWithWall(x, y, size) {
   return false;
 }
 
+function gameOver() {
+  gameRunning = false;
+}
+
 // --- Input ---
-window.addEventListener('keydown', e => keys[e.key] = true);
-window.addEventListener('keyup',   e => keys[e.key] = false);
+window.addEventListener('keydown', e => {
+  keys[e.key] = true;
+  if ((e.key === 'r' || e.key === 'R') && !gameRunning) location.reload();
+});
+window.addEventListener('keyup', e => keys[e.key] = false);
 canvas.addEventListener('mousemove', e => {
   const r = canvas.getBoundingClientRect();
   mouse.x = e.clientX - r.left;
@@ -150,7 +158,7 @@ function update() {
 
   if (player.iframes > 0) player.iframes--;
 
- const now = Date.now();
+  const now = Date.now();
   if (mouse.down && now - lastShot > currentWeapon.rate) {
     lastShot = now;
     const pellets = currentWeapon.pellets || 1;
@@ -167,6 +175,7 @@ function update() {
       });
     }
   }
+
   for (let i = bullets.length - 1; i >= 0; i--) {
     const b = bullets[i];
     b.x += b.vx; b.y += b.vy; b.life--;
@@ -194,7 +203,6 @@ function update() {
         if (e.hp <= 0) {
           e.dead = true;
           kills++;
-          // Soltar arma al azar (30% de probabilidad)
           if (Math.random() < 0.3) {
             const idx = Math.floor(Math.random() * WEAPONS.length);
             drops.push({ x: e.x, y: e.y, weapon: WEAPONS[idx] });
@@ -246,7 +254,8 @@ function update() {
       player.iframes = 40;
     }
   }
-  // Recoger armas del suelo
+
+  // Recoger armas
   for (let i = drops.length - 1; i >= 0; i--) {
     const d = drops[i];
     const dx = player.x - d.x, dy = player.y - d.y;
@@ -254,6 +263,12 @@ function update() {
       currentWeapon = d.weapon;
       drops.splice(i, 1);
     }
+  }
+
+  // Game Over
+  if (player.hp <= 0) {
+    player.hp = 0;
+    gameOver();
   }
 }
 
@@ -279,13 +294,26 @@ function draw() {
     }
   }
 
-  ctx.fillStyle = '#fac775';
+  // Drops
+  for (const d of drops) {
+    ctx.fillStyle = d.weapon.color;
+    ctx.fillRect(d.x - 8, d.y - 4, 16, 8);
+    ctx.fillStyle = '#fff';
+    ctx.font = '8px monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText(d.weapon.name, d.x, d.y - 8);
+    ctx.textAlign = 'left';
+  }
+
+  // Balas
   for (const b of bullets) {
+    ctx.fillStyle = b.owner === 'enemy' ? '#e24b4a' : currentWeapon.color;
     ctx.beginPath();
     ctx.arc(b.x, b.y, 4, 0, Math.PI * 2);
     ctx.fill();
   }
 
+  // Enemigos
   for (const e of enemies) {
     if (e.dead) continue;
     ctx.fillStyle = e.type === 'melee' ? '#D4537E' : '#7F77DD';
@@ -298,6 +326,7 @@ function draw() {
     ctx.fillRect(e.x - 14, e.y - 18, 28 * (e.hp / e.maxHp), 4);
   }
 
+  // Jugador
   if (player.iframes === 0 || Math.floor(player.iframes / 4) % 2 === 0) {
     ctx.save();
     ctx.translate(player.x, player.y);
@@ -322,24 +351,11 @@ function draw() {
     ctx.save();
     ctx.translate(player.x, player.y);
     ctx.rotate(player.angle);
-    ctx.fillStyle = '#fac775';
+    ctx.fillStyle = currentWeapon.color;
     ctx.fillRect(4, -2, 14, 4);
     ctx.restore();
   }
-  // Dibujar drops
-  for (const d of drops) {
-    ctx.fillStyle = d.weapon.color;
-    ctx.fillRect(d.x - 8, d.y - 4, 16, 8);
-    ctx.fillStyle = '#fff';
-    ctx.font = '8px monospace';
-    ctx.textAlign = 'center';
-    ctx.fillText(d.weapon.name, d.x, d.y - 8);
-    ctx.textAlign = 'left';
-  }
 
-  ctx.restore();
-
-  // HUD
   ctx.restore();
 
   // HUD
@@ -358,12 +374,34 @@ function draw() {
   ctx.font = 'bold 11px monospace';
   ctx.fillText(`HP  ${player.hp} / ${player.maxHp}`, 14, 21);
 
+  ctx.fillStyle = currentWeapon.color;
+  ctx.font = 'bold 11px monospace';
+  ctx.textAlign = 'center';
+  ctx.fillText(currentWeapon.name, W / 2, 21);
+  ctx.textAlign = 'left';
+
   ctx.fillStyle = '#aaa';
   ctx.font = '11px monospace';
   ctx.fillText(`Kills: ${kills}`, W - 80, 21);
 }
 
+// --- Loop ---
 function loop() {
+  if (!gameRunning) {
+    ctx.fillStyle = 'rgba(0,0,0,0.7)';
+    ctx.fillRect(0, 0, W, H);
+    ctx.fillStyle = '#e24b4a';
+    ctx.font = 'bold 40px monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText('GAME OVER', W / 2, H / 2 - 20);
+    ctx.fillStyle = '#aaa';
+    ctx.font = '16px monospace';
+    ctx.fillText(`Kills: ${kills}`, W / 2, H / 2 + 20);
+    ctx.fillText('Presiona R para reiniciar', W / 2, H / 2 + 50);
+    ctx.textAlign = 'left';
+    requestAnimationFrame(loop);
+    return;
+  }
   update();
   draw();
   requestAnimationFrame(loop);
