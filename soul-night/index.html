@@ -6,12 +6,22 @@
   <link rel="stylesheet" href="css/style.css" />
 </head>
 <body>
-  <canvas id="c" width="680" height="480"></canvas>
-  <div id="menu">
-  <h1>☽ SOUL NIGHT</h1>
-  <p>Un roguelike de mazmorras</p>
-  <button onclick="startGame()">JUGAR</button>
-</div>
+  <div id="container">
+    <canvas id="c" width="680" height="480"></canvas>
+
+    <div id="menu">
+      <h1>☽ SOUL NIGHT</h1>
+      <p>Un roguelike de mazmorras</p>
+      <button onclick="startGame()">JUGAR</button>
+    </div>
+
+    <div id="charSelect">
+      <h2>ELIGE TU HÉROE</h2>
+      <div class="char-grid" id="charGrid"></div>
+      <button onclick="confirmChar()">ELEGIR</button>
+    </div>
+  </div>
+
   <script src="js/game.js"></script>
 </body>
 </html>

@@ -478,8 +478,104 @@ function loop() {
   draw();
   requestAnimationFrame(loop);
 }
+// --- Personajes ---
+const HEROES = [
+  {
+    name: 'Guerrero',
+    icon: '🗡️',
+    color: '#AFA9EC',
+    desc: 'Equilibrado. Resistente en combate cuerpo a cuerpo.',
+    hp: 120, speed: 3,
+    weapon: 'Pistola',
+    stats: { HP: '120', Velocidad: 'Media', Arma: 'Pistola' },
+  },
+  {
+    name: 'Mago',
+    icon: '🔮',
+    color: '#7F77DD',
+    desc: 'Frágil pero dispara más rápido y con más alcance.',
+    hp: 80, speed: 3.2,
+    weapon: 'Laser',
+    stats: { HP: '80', Velocidad: 'Media', Arma: 'Laser' },
+  },
+  {
+    name: 'Pícaro',
+    icon: '🗡️',
+    color: '#5DCAA5',
+    desc: 'Muy rápido. Ideal para esquivar y atacar.',
+    hp: 90, speed: 4.5,
+    weapon: 'Pistola',
+    stats: { HP: '90', Velocidad: 'Alta', Arma: 'Pistola' },
+  },
+  {
+    name: 'Ingeniero',
+    icon: '🔧',
+    color: '#EF9F27',
+    desc: 'Especialista en armas pesadas. Empieza con cohete.',
+    hp: 100, speed: 2.5,
+    weapon: 'Cohete',
+    stats: { HP: '100', Velocidad: 'Baja', Arma: 'Cohete' },
+  },
+  {
+    name: 'Caballero',
+    icon: '🛡️',
+    color: '#B5D4F4',
+    desc: 'Máximo HP. Lento pero muy resistente.',
+    hp: 150, speed: 2.2,
+    weapon: 'Escopeta',
+    stats: { HP: '150', Velocidad: 'Baja', Arma: 'Escopeta' },
+  },
+  {
+    name: 'Cazador',
+    icon: '🏹',
+    color: '#9FE1CB',
+    desc: 'Experto en armas de largo alcance.',
+    hp: 85, speed: 3.5,
+    weapon: 'AK-47',
+    stats: { HP: '85', Velocidad: 'Media-Alta', Arma: 'AK-47' },
+  },
+];
+
+let selectedHero = 0;
+
+function buildCharGrid() {
+  const grid = document.getElementById('charGrid');
+  grid.innerHTML = '';
+  HEROES.forEach((h, i) => {
+    const card = document.createElement('div');
+    card.className = 'char-card' + (i === 0 ? ' selected' : '');
+    card.innerHTML = `
+      <div class="char-icon">${h.icon}</div>
+      <div class="char-name" style="color:${h.color}">${h.name}</div>
+      <div class="char-desc">${h.desc}</div>
+      <div class="char-stats">
+        HP: <span>${h.stats.HP}</span><br>
+        Vel: <span>${h.stats.Velocidad}</span><br>
+        Arma: <span>${h.stats.Arma}</span>
+      </div>
+    `;
+    card.onclick = () => {
+      document.querySelectorAll('.char-card').forEach(c => c.classList.remove('selected'));
+      card.classList.add('selected');
+      selectedHero = i;
+    };
+    grid.appendChild(card);
+  });
+}
+
 function startGame() {
   document.getElementById('menu').style.display = 'none';
+  document.getElementById('charSelect').style.display = 'flex';
+  buildCharGrid();
+}
+
+function confirmChar() {
+  document.getElementById('charSelect').style.display = 'none';
+  const hero = HEROES[selectedHero];
+  player.hp = hero.hp;
+  player.maxHp = hero.hp;
+  player.speed = hero.speed;
+  currentWeapon = WEAPONS.find(w => w.name === hero.weapon) || WEAPONS[0];
   loop();
 }
 
