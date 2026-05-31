@@ -478,5 +478,9 @@ function loop() {
   draw();
   requestAnimationFrame(loop);
 }
+function startGame() {
+  document.getElementById('menu').style.display = 'none';
+  loop();
+}
 
-loop();
+// loop arranca desde el menu
