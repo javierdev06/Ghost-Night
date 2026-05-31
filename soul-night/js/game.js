@@ -64,12 +64,12 @@ let currentWeapon = WEAPONS[0];
 
 // --- Personajes ---
 const HEROES = [
-  { name: 'Guerrero', icon: '🗡️', color: '#AFA9EC', desc: 'Equilibrado. Resistente en combate.', hp: 120, speed: 3,   weapon: 'Pistola',  stats: { HP: '120', Velocidad: 'Media',      Arma: 'Pistola'  } },
-  { name: 'Mago',     icon: '🔮', color: '#7F77DD', desc: 'Frágil pero dispara más rápido.',     hp: 80,  speed: 3.2, weapon: 'Laser',    stats: { HP: '80',  Velocidad: 'Media',      Arma: 'Laser'    } },
-  { name: 'Pícaro',   icon: '🗡️', color: '#5DCAA5', desc: 'Muy rápido. Ideal para esquivar.',   hp: 90,  speed: 4.5, weapon: 'Pistola',  stats: { HP: '90',  Velocidad: 'Alta',       Arma: 'Pistola'  } },
-  { name: 'Ingeniero',icon: '🔧', color: '#EF9F27', desc: 'Especialista en armas pesadas.',      hp: 100, speed: 2.5, weapon: 'Cohete',   stats: { HP: '100', Velocidad: 'Baja',       Arma: 'Cohete'   } },
-  { name: 'Caballero',icon: '🛡️', color: '#B5D4F4', desc: 'Máximo HP. Lento pero resistente.',  hp: 150, speed: 2.2, weapon: 'Escopeta', stats: { HP: '150', Velocidad: 'Baja',       Arma: 'Escopeta' } },
-  { name: 'Cazador',  icon: '🏹', color: '#9FE1CB', desc: 'Experto en largo alcance.',           hp: 85,  speed: 3.5, weapon: 'AK-47',   stats: { HP: '85',  Velocidad: 'Media-Alta', Arma: 'AK-47'    } },
+  { name: 'Guerrero',  color: '#AFA9EC', desc: 'Equilibrado. Resistente en combate.', hp: 120, speed: 3,   weapon: 'Pistola',  stats: { HP: '120', Velocidad: 'Media',      Arma: 'Pistola'  } },
+  { name: 'Mago',      color: '#7F77DD', desc: 'Fragil pero dispara mas rapido.',     hp: 80,  speed: 3.2, weapon: 'Laser',    stats: { HP: '80',  Velocidad: 'Media',      Arma: 'Laser'    } },
+  { name: 'Picaro',    color: '#5DCAA5', desc: 'Muy rapido. Ideal para esquivar.',    hp: 90,  speed: 4.5, weapon: 'Pistola',  stats: { HP: '90',  Velocidad: 'Alta',       Arma: 'Pistola'  } },
+  { name: 'Ingeniero', color: '#EF9F27', desc: 'Especialista en armas pesadas.',      hp: 100, speed: 2.5, weapon: 'Cohete',   stats: { HP: '100', Velocidad: 'Baja',       Arma: 'Cohete'   } },
+  { name: 'Caballero', color: '#B5D4F4', desc: 'Maximo HP. Lento pero resistente.',   hp: 150, speed: 2.2, weapon: 'Escopeta', stats: { HP: '150', Velocidad: 'Baja',       Arma: 'Escopeta' } },
+  { name: 'Cazador',   color: '#9FE1CB', desc: 'Experto en largo alcance.',           hp: 85,  speed: 3.5, weapon: 'AK-47',   stats: { HP: '85',  Velocidad: 'Media-Alta', Arma: 'AK-47'    } },
 ];
 
 let selectedHero = 0;
@@ -128,7 +128,8 @@ let kills         = 0;
 let camX = 0, camY = 0;
 let gameRunning   = false;
 let levelComplete = false;
-let paused = false;
+let paused        = false;
+let loopRunning   = false;
 
 // --- Colisión ---
 function collidesWithWall(x, y, size) {
@@ -145,7 +146,7 @@ function collidesWithWall(x, y, size) {
   return false;
 }
 
-// --- Partículas ---
+// --- Particulas ---
 function spawnParticles(x, y, color, count) {
   for (let i = 0; i < count; i++) {
     const angle = Math.random() * Math.PI * 2;
@@ -198,7 +199,7 @@ function showLevelComplete() {
   const el = document.getElementById('levelComplete');
   el.style.display = 'flex';
   document.getElementById('levelCompleteMsg').textContent =
-    `Piso ${level} completado — Kills totales: ${kills}`;
+    `Piso ${level} completado - Kills totales: ${kills}`;
 }
 
 function continueGame() {
@@ -209,11 +210,15 @@ function continueGame() {
 
 function gameOver() { gameRunning = false; }
 
-// --- Menú ---
+// --- Menu ---
 function showMenu() {
-  document.getElementById('levelMap').style.display    = 'none';
-  document.getElementById('charSelect').style.display  = 'none';
-  document.getElementById('menu').style.display        = 'flex';
+  loopRunning   = false;
+  gameRunning   = false;
+  document.getElementById('levelMap').style.display   = 'none';
+  document.getElementById('charSelect').style.display = 'none';
+  document.getElementById('pauseMenu').style.display  = 'none';
+  document.getElementById('levelComplete').style.display = 'none';
+  document.getElementById('menu').style.display       = 'flex';
 }
 
 function showLevelMap() {
@@ -232,7 +237,7 @@ function buildLevelGrid() {
     btn.className = 'level-btn' + (completed ? ' completed' : unlocked ? ' unlocked' : '');
     btn.innerHTML = `
       <span>${i}</span>
-      <span class="level-stars">${completed ? '★★★' : unlocked ? '☆☆☆' : '🔒'}</span>
+      <span class="level-stars">${completed ? '***' : unlocked ? '---' : 'X'}</span>
     `;
     if (unlocked) btn.onclick = () => startLevel(i);
     grid.appendChild(btn);
@@ -253,7 +258,8 @@ function startLevel(n) {
   spawnEnemies();
   gameRunning   = true;
   levelComplete = false;
-  loop();
+  paused        = false;
+  if (!loopRunning) { loopRunning = true; loop(); }
 }
 
 function buildCharGrid() {
@@ -263,7 +269,6 @@ function buildCharGrid() {
     const card = document.createElement('div');
     card.className = 'char-card' + (i === 0 ? ' selected' : '');
     card.innerHTML = `
-      <div class="char-icon">${h.icon}</div>
       <div class="char-name" style="color:${h.color}">${h.name}</div>
       <div class="char-desc">${h.desc}</div>
       <div class="char-stats">
@@ -282,7 +287,7 @@ function buildCharGrid() {
 }
 
 function startGame() {
-  document.getElementById('menu').style.display     = 'none';
+  document.getElementById('menu').style.display       = 'none';
   document.getElementById('charSelect').style.display = 'flex';
   buildCharGrid();
 }
@@ -296,13 +301,24 @@ function confirmChar() {
   currentWeapon = WEAPONS.find(w => w.name === hero.weapon) || WEAPONS[0];
   gameRunning   = true;
   levelComplete = false;
-  loop();
+  paused        = false;
+  kills         = 0;
+  level         = 1;
+  const data = generateMap();
+  map = data.map; rooms = data.rooms;
+  const r = rooms[0];
+  player.x = (r.x + Math.floor(r.w / 2)) * TILE;
+  player.y = (r.y + Math.floor(r.h / 2)) * TILE;
+  bullets.length = drops.length = hpDrops.length = particles.length = 0;
+  revealedTiles.clear();
+  spawnEnemies();
+  if (!loopRunning) { loopRunning = true; loop(); }
 }
 
 // --- Input ---
 window.addEventListener('keydown', e => {
   keys[e.key] = true;
-  if ((e.key === 'r' || e.key === 'R') && !gameRunning) location.reload();
+  if ((e.key === 'r' || e.key === 'R') && !gameRunning && loopRunning) location.reload();
   if (e.key === 'Escape' && gameRunning) {
     paused ? resumeGame() : pauseGame();
   }
@@ -327,12 +343,13 @@ function resumeGame() {
 }
 
 function quitToMenu() {
-  paused = false;
+  paused      = false;
+  loopRunning = false;
   gameRunning = false;
   levelComplete = false;
-  document.getElementById('pauseMenu').style.display = 'none';
+  document.getElementById('pauseMenu').style.display     = 'none';
   document.getElementById('levelComplete').style.display = 'none';
-  document.getElementById('menu').style.display = 'flex';
+  document.getElementById('menu').style.display          = 'flex';
 }
 
 // --- Update ---
@@ -623,7 +640,7 @@ function draw() {
   ctx.textAlign = 'center'; ctx.fillText(currentWeapon.name, W/2, 21); ctx.textAlign = 'left';
   if (level % 5 === 0) {
     ctx.fillStyle = '#E24B4A'; ctx.font = 'bold 11px monospace';
-    ctx.textAlign = 'center'; ctx.fillText('⚠ PISO DEL JEFE ⚠', W/2, 34); ctx.textAlign = 'left';
+    ctx.textAlign = 'center'; ctx.fillText('PISO DEL JEFE', W/2, 34); ctx.textAlign = 'left';
   }
   ctx.fillStyle = '#aaa'; ctx.font = '11px monospace';
   ctx.fillText(`Piso: ${level}  Kills: ${kills}`, W - 140, 21);
@@ -631,6 +648,8 @@ function draw() {
 
 // --- Loop ---
 function loop() {
+  if (!loopRunning) return;
+
   if (!gameRunning) {
     ctx.fillStyle = 'rgba(0,0,0,0.7)'; ctx.fillRect(0, 0, W, H);
     ctx.fillStyle = '#e24b4a'; ctx.font = 'bold 40px monospace';
@@ -641,8 +660,9 @@ function loop() {
     ctx.textAlign = 'left';
     requestAnimationFrame(loop); return;
   }
+  if (paused)        { requestAnimationFrame(loop); return; }
   if (levelComplete) { draw(); requestAnimationFrame(loop); return; }
-  if (paused) { requestAnimationFrame(loop); return; }
+
   update(); draw();
   requestAnimationFrame(loop);
 }
