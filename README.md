@@ -1,6 +1,6 @@
 #  Ghost Night
 
-![Ghost Night Gameplay](assets/gameplay.png)
+<img width="1359" height="633" alt="Captura de pantalla (924)" src="https://github.com/user-attachments/assets/e8821edc-a357-4945-88c7-564668a68359" />
 
 > **Estado: En desarrollo activo** 
 
@@ -15,6 +15,7 @@ Ghost Night es un juego de exploración de mazmorras con generación procedural 
 El mapa se genera usando **Cellular Automata**, creando cuevas orgánicas únicas en cada partida. Las antorchas iluminan las paredes de roca y la niebla de guerra obliga al jugador a explorar cada rincón.
 
 ##  Características implementadas
+<img width="1359" height="633" alt="Captura de pantalla (924)" src="https://github.com/user-attachments/assets/439d8b64-626d-4d84-8628-678c490689be" />
 
 ### Jugador
 - 6 héroes con stats distintos (HP, velocidad, arma inicial)
