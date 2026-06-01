@@ -115,48 +115,85 @@ loadProgress();
 // GENERACION DEL MAPA
 // ================================
 function generateMap() {
-  const map = Array.from({ length: ROWS }, () => Array(COLS).fill(1));
-  const rooms = [];
-  const roomCount = 8 + Math.floor(level / 2);
-  let attempts = 0;
-  while (rooms.length < roomCount && attempts < 500) {
-    attempts++;
-    const rw = 4 + Math.floor(Math.random() * 7);
-    const rh = 4 + Math.floor(Math.random() * 6);
-    const rx = 1 + Math.floor(Math.random() * (COLS - rw - 2));
-    const ry = 1 + Math.floor(Math.random() * (ROWS - rh - 2));
-    let ok = true;
-    for (const r of rooms) {
-      if (rx<r.x+r.w+2&&rx+rw>r.x-2&&ry<r.y+r.h+2&&ry+rh>r.y-2) { ok=false; break; }
-    }
-    if (ok) {
-      for (let y=ry; y<ry+rh; y++)
-        for (let x=rx; x<rx+rw; x++) {
-          const isCorner=(x===rx||x===rx+rw-1)&&(y===ry||y===ry+rh-1);
-          if (!isCorner) map[y][x]=0;
-        }
-      rooms.push({ x:rx, y:ry, w:rw, h:rh });
-    }
-  }
-  for (let i=1; i<rooms.length; i++) {
-    const a=rooms[i-1], b=rooms[i];
-    let cx=Math.floor(a.x+a.w/2), cy=Math.floor(a.y+a.h/2);
-    const tx=Math.floor(b.x+b.w/2), ty=Math.floor(b.y+b.h/2);
-    while (cx!==tx) { map[cy][cx]=0; if (cy+1<ROWS&&Math.random()<0.4) map[cy+1][cx]=0; cx+=cx<tx?1:-1; }
-    while (cy!==ty) { map[cy][cx]=0; if (cx+1<COLS&&Math.random()<0.4) map[cy][cx+1]=0; cy+=cy<ty?1:-1; }
-  }
-  for (let pass=0; pass<2; pass++) {
+  // Cellular automata — genera cuevas organicas
+  let map = Array.from({ length: ROWS }, () =>
+    Array.from({ length: COLS }, () => Math.random() < 0.45 ? 1 : 0)
+  );
+
+  // Bordes siempre son paredes
+  for (let y=0; y<ROWS; y++) { map[y][0]=1; map[y][COLS-1]=1; }
+  for (let x=0; x<COLS; x++) { map[0][x]=1; map[ROWS-1][x]=1; }
+
+  // Suavizar 5 veces para formar cuevas naturales
+  for (let pass=0; pass<5; pass++) {
+    const next = map.map(r=>[...r]);
     for (let y=1; y<ROWS-1; y++) {
       for (let x=1; x<COLS-1; x++) {
-        if (map[y][x]===1) {
-          let n=0;
-          if (map[y-1][x]===0) n++; if (map[y+1][x]===0) n++;
-          if (map[y][x-1]===0) n++; if (map[y][x+1]===0) n++;
-          if (n>=3) map[y][x]=0;
+        let walls=0;
+        for (let dy=-1;dy<=1;dy++)
+          for (let dx=-1;dx<=1;dx++)
+            walls+=map[y+dy][x+dx];
+        next[y][x] = walls>=5 ? 1 : 0;
+      }
+    }
+    map=next;
+  }
+
+  // Encontrar salas (areas abiertas) para spawn
+  const rooms = [];
+  const visited = Array.from({length:ROWS},()=>Array(COLS).fill(false));
+
+  function floodFill(sy, sx) {
+    const cells = [];
+    const queue = [[sy,sx]];
+    visited[sy][sx]=true;
+    while (queue.length) {
+      const [cy,cx]=queue.shift();
+      cells.push({y:cy,x:cx});
+      for (const [dy,dx] of [[-1,0],[1,0],[0,-1],[0,1]]) {
+        const ny=cy+dy, nx=cx+dx;
+        if (ny>=0&&ny<ROWS&&nx>=0&&nx<COLS&&!visited[ny][nx]&&map[ny][nx]===0) {
+          visited[ny][nx]=true;
+          queue.push([ny,nx]);
         }
       }
     }
+    return cells;
   }
+
+  // Encontrar todas las regiones y quedarse con la más grande
+  let largestRegion = [];
+  for (let y=1;y<ROWS-1;y++) {
+    for (let x=1;x<COLS-1;x++) {
+      if (!visited[y][x]&&map[y][x]===0) {
+        const region=floodFill(y,x);
+        if (region.length>largestRegion.length) largestRegion=region;
+      }
+    }
+  }
+
+  // Rellenar todo excepto la region mas grande
+  for (let y=0;y<ROWS;y++)
+    for (let x=0;x<COLS;x++)
+      map[y][x]=1;
+  for (const {y,x} of largestRegion) map[y][x]=0;
+
+  // Crear "salas" virtuales para spawn de enemigos
+  // Dividir la region en zonas
+  const regionSize=largestRegion.length;
+  const zoneCount=Math.min(10, Math.floor(regionSize/20));
+  const step=Math.floor(regionSize/zoneCount);
+  for (let i=0;i<zoneCount;i++) {
+    const cell=largestRegion[i*step];
+    rooms.push({x:cell.x,y:cell.y,w:3,h:3});
+  }
+
+  // Asegurar al menos 2 salas
+  if (rooms.length<2) {
+    rooms.push({x:Math.floor(COLS/2),y:Math.floor(ROWS/2),w:3,h:3});
+    rooms.push({x:Math.floor(COLS/3),y:Math.floor(ROWS/3),w:3,h:3});
+  }
+
   return { map, rooms };
 }
 
@@ -184,11 +221,11 @@ const fireflies = Array.from({length:30},()=>({ x:Math.random()*COLS*TILE, y:Mat
 // ================================
 function getEnemyStats(type) {
   return {
-    slime:    { size:12, speed:0.8+level*0.04, hp:20+level*5,   dmg:6  },
-    bat:      { size:10, speed:2.0+level*0.06, hp:15+level*4,   dmg:5  },
-    gremlin:  { size:12, speed:1.4+level*0.07, hp:35+level*8,   dmg:10 },
-    ogre:     { size:20, speed:0.9+level*0.05, hp:80+level*15,  dmg:18 },
-    manticore:{ size:32, speed:1.0+level*0.04, hp:600+level*80, dmg:30 },
+    slime:    { size:18, speed:0.8+level*0.04, hp:20+level*5,   dmg:6  },
+    bat:      { size:15, speed:2.0+level*0.06, hp:15+level*4,   dmg:5  },
+    gremlin:  { size:18, speed:1.4+level*0.07, hp:35+level*8,   dmg:10 },
+    ogre:     { size:28, speed:0.9+level*0.05, hp:80+level*15,  dmg:18 },
+    manticore:{ size:42, speed:1.0+level*0.04, hp:600+level*80, dmg:30 },
   }[type] || { size:12, speed:1.2, hp:30, dmg:8 };
 }
 
@@ -680,7 +717,7 @@ function draw() {
     if (!revealedTiles.has(`${Math.floor(c.x/TILE)},${Math.floor(c.y/TILE)}`)) continue;
     const chestSprite=sprites[c.opened?'chest_open':'chest_closed'];
     if (chestSprite) {
-      ctx.drawImage(chestSprite,c.x-12,c.y-14,24,24);
+      ctx.drawImage(chestSprite,c.x-20,c.y-20,40,40);
       if (!c.opened&&c.gold) { ctx.globalAlpha=0.3+Math.sin(Date.now()/300)*0.2; ctx.fillStyle='#FFD600'; ctx.beginPath(); ctx.arc(c.x,c.y,16,0,Math.PI*2); ctx.fill(); ctx.globalAlpha=1; }
     } else {
       ctx.save(); ctx.translate(c.x,c.y);
@@ -693,7 +730,7 @@ function draw() {
   // HP drops con sprite corazon
   for (const h of hpDrops) {
     const heartSprite=sprites['heart_full'];
-    if (heartSprite) { ctx.drawImage(heartSprite,h.x-8,h.y-8,16,16); }
+    if (heartSprite) { ctx.drawImage(heartSprite,h.x-14,h.y-14,28,28); }
     else {
       ctx.fillStyle='#9FE1CB33'; ctx.beginPath(); ctx.arc(h.x,h.y,12,0,Math.PI*2); ctx.fill();
       ctx.strokeStyle='#9FE1CB'; ctx.lineWidth=1.5; ctx.beginPath(); ctx.arc(h.x,h.y,10,0,Math.PI*2); ctx.stroke();
@@ -705,7 +742,7 @@ function draw() {
   for (const d of drops) {
     ctx.fillStyle=d.weapon.color+'33'; ctx.beginPath(); ctx.arc(d.x,d.y,14,0,Math.PI*2); ctx.fill();
     ctx.strokeStyle=d.weapon.color; ctx.lineWidth=1.5; ctx.beginPath(); ctx.arc(d.x,d.y,12,0,Math.PI*2); ctx.stroke();
-    ctx.save(); ctx.translate(d.x,d.y); ctx.fillStyle=d.weapon.color; ctx.fillRect(-8,-2,16,4); ctx.fillStyle='#aaa'; ctx.fillRect(4,-1.5,8,3); ctx.restore();
+    ctx.save(); ctx.translate(d.x,d.y); ctx.fillStyle=d.weapon.color; ctx.fillRect(-12,-3,24,6); ctx.fillStyle='#aaa'; ctx.fillRect(6,-2,12,4); ctx.restore();
     ctx.fillStyle=d.weapon.color; ctx.font='bold 10px monospace'; ctx.textAlign='center'; ctx.fillText(d.weapon.name,d.x,d.y-16);
     const dx=player.x-d.x, dy=player.y-d.y;
     if (Math.sqrt(dx*dx+dy*dy)<40) { ctx.fillStyle='#fff'; ctx.font='bold 12px monospace'; ctx.fillText('[E]',d.x,d.y-28); }
