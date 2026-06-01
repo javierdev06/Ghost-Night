@@ -21,6 +21,7 @@ function loadSprites() {
       'brick_dark0','brick_dark1','brick_dark2',
       'torch0','torch1','torch2','torch3','torch4',
       'enemy_slime','enemy_bat','enemy_gremlin','enemy_ogre','enemy_manticore',
+      'atlas_floor','atlas_walls_high','atlas_walls_low',
     ];
     let loaded = 0;
     for (const name of files) {
@@ -238,9 +239,6 @@ const keys={}, mouse={x:W/2,y:H/2,down:false};
 let lastShot=0, kills=0;
 let gameRunning=false, levelComplete=false, paused=false, loopRunning=false;
 
-// ================================
-// COLISION
-// ================================
 function collidesWithWall(x,y,size) {
   const corners=[[x-size,y-size],[x+size,y-size],[x-size,y+size],[x+size,y+size]];
   for (const [cx,cy] of corners) {
@@ -354,7 +352,7 @@ function drawPlayerSkin(c, skin) {
 }
 
 // ================================
-// DIBUJAR ENEMIGOS CON SPRITES
+// DIBUJAR ENEMIGOS
 // ================================
 function drawEnemy(ctx, e) {
   const sprite = sprites[`enemy_${e.type}`];
@@ -371,8 +369,6 @@ function drawEnemy(ctx, e) {
     ctx.fillStyle='#e24b4a'; ctx.beginPath(); ctx.arc(0,0,e.size,0,Math.PI*2); ctx.fill();
     ctx.restore();
   }
-
-  // Barra HP
   const barW = e.type==='manticore'?80:e.type==='ogre'?40:24;
   ctx.fillStyle='#1a1a2e'; ctx.fillRect(e.x-barW/2,e.y-e.size-12,barW,5);
   const hpColor=e.type==='manticore'?'#FF6600':e.type==='ogre'?'#795548':e.type==='gremlin'?'#8BC34A':e.type==='bat'?'#6D4C41':'#4CAF50';
@@ -496,8 +492,7 @@ window.addEventListener('keydown', e=>{
 window.addEventListener('keyup', e=>keys[e.key]=false);
 canvas.addEventListener('mousemove', e=>{
   const rect=canvas.getBoundingClientRect();
-  const scaleX=W/rect.width;
-  const scaleY=H/rect.height;
+  const scaleX=W/rect.width, scaleY=H/rect.height;
   mouse.x=(e.clientX-rect.left)*scaleX;
   mouse.y=(e.clientY-rect.top)*scaleY;
 });
@@ -639,8 +634,10 @@ function draw() {
   ctx.translate(-camX,-camY);
 
   const torchFrame=Math.floor(Date.now()/150)%5;
+  const floorAtlas=sprites['atlas_floor'];
+  // Variaciones de suelo del atlas (16x16 cada tile)
+  const floorTiles=[[0,0],[16,0],[32,0],[48,0],[64,0],[0,16],[16,16],[32,16]];
 
-  // Tiles del mapa
   for (let y=0;y<ROWS;y++) {
     for (let x=0;x<COLS;x++) {
       const px=x*TILE, py=y*TILE;
@@ -648,7 +645,7 @@ function draw() {
         ctx.fillStyle='#000'; ctx.fillRect(px,py,TILE,TILE); continue;
       }
       if (map[y][x]===1) {
-        // Pared con sprite
+        // Pared con brick_dark (roca organica)
         const wallIdx=(x*3+y*7)%3;
         const wallSprite=sprites[`brick_dark${wallIdx}`];
         if (wallSprite) {
@@ -668,15 +665,15 @@ function draw() {
           }
         }
       } else {
-        // Suelo con sprite
-        const floorIdx=(x*7+y*11)%3;
-        const floorSprite=sprites[`grey_dirt${floorIdx}`];
-        if (floorSprite) {
-          ctx.drawImage(floorSprite,px,py,TILE,TILE);
+        // Suelo con atlas 0x72 (piedra con grietas)
+        if (floorAtlas) {
+          const idx=(x*7+y*11)%floorTiles.length;
+          const [sx,sy]=floorTiles[idx];
+          ctx.drawImage(floorAtlas,sx,sy,16,16,px,py,TILE,TILE);
         } else {
           ctx.fillStyle='#0e0b14'; ctx.fillRect(px,py,TILE,TILE);
         }
-        // Sombras en bordes donde hay pared — da profundidad sin cuadricula
+        // Sombras en bordes para profundidad
         if (map[y-1]&&map[y-1][x]===1) { ctx.fillStyle='rgba(0,0,0,0.55)'; ctx.fillRect(px,py,TILE,10); }
         if (map[y+1]&&map[y+1][x]===1) { ctx.fillStyle='rgba(0,0,0,0.3)';  ctx.fillRect(px,py+TILE-6,TILE,6); }
         if (map[y][x-1]===1)            { ctx.fillStyle='rgba(0,0,0,0.3)';  ctx.fillRect(px,py,8,TILE); }
