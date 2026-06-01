@@ -20,6 +20,7 @@ function loadSprites() {
       'grey_dirt0','grey_dirt1','grey_dirt2',
       'brick_dark0','brick_dark1','brick_dark2',
       'torch0','torch1','torch2','torch3','torch4',
+      'enemy_slime','enemy_bat','enemy_gremlin','enemy_ogre','enemy_manticore',
     ];
     let loaded = 0;
     for (const name of files) {
@@ -161,21 +162,19 @@ function generateMap() {
 let { map, rooms } = generateMap();
 
 // ================================
-// JUGADOR - camara inicializada correctamente
+// JUGADOR
 // ================================
 const startRoom = rooms[0];
 const playerStartX = (startRoom.x+Math.floor(startRoom.w/2))*TILE;
 const playerStartY = (startRoom.y+Math.floor(startRoom.h/2))*TILE;
 
 const player = {
-  x: playerStartX,
-  y: playerStartY,
+  x: playerStartX, y: playerStartY,
   size:10, speed:3, angle:0, hp:100, maxHp:100, iframes:0, meleeSwing:0,
 };
 
-// Camara inicializada donde esta el jugador
-let camX = Math.max(0, Math.min(playerStartX - W/2, COLS*TILE - W));
-let camY = Math.max(0, Math.min(playerStartY - H/2, ROWS*TILE - H));
+let camX = Math.max(0, Math.min(playerStartX-W/2, COLS*TILE-W));
+let camY = Math.max(0, Math.min(playerStartY-H/2, ROWS*TILE-H));
 
 const enemies=[], drops=[], hpDrops=[], bullets=[], particles=[], chests=[];
 const revealedTiles = new Set();
@@ -191,11 +190,11 @@ const fireflies = Array.from({length:30}, ()=>({
 // ================================
 function getEnemyStats(type) {
   return {
-    slime:    { size:8,  speed:0.8+level*0.04, hp:20+level*5,   dmg:6  },
-    bat:      { size:7,  speed:2.0+level*0.06, hp:15+level*4,   dmg:5  },
-    gremlin:  { size:10, speed:1.4+level*0.07, hp:35+level*8,   dmg:10 },
-    ogre:     { size:16, speed:0.9+level*0.05, hp:80+level*15,  dmg:18 },
-    manticore:{ size:28, speed:1.0+level*0.04, hp:600+level*80, dmg:30 },
+    slime:    { size:10, speed:0.8+level*0.04, hp:20+level*5,   dmg:6  },
+    bat:      { size:9,  speed:2.0+level*0.06, hp:15+level*4,   dmg:5  },
+    gremlin:  { size:12, speed:1.4+level*0.07, hp:35+level*8,   dmg:10 },
+    ogre:     { size:18, speed:0.9+level*0.05, hp:80+level*15,  dmg:18 },
+    manticore:{ size:30, speed:1.0+level*0.04, hp:600+level*80, dmg:30 },
   }[type] || { size:10, speed:1.2, hp:30, dmg:8 };
 }
 
@@ -287,7 +286,6 @@ function nextLevel() {
   const r=rooms[0];
   player.x=(r.x+Math.floor(r.w/2))*TILE;
   player.y=(r.y+Math.floor(r.h/2))*TILE;
-  // Resetear camara al nuevo spawn
   camX=Math.max(0,Math.min(player.x-W/2,COLS*TILE-W));
   camY=Math.max(0,Math.min(player.y-H/2,ROWS*TILE-H));
   player.hp=Math.min(player.maxHp,player.hp+30);
@@ -355,50 +353,34 @@ function drawPlayerSkin(c, skin) {
   }
 }
 
-function drawEnemy(ctx,e) {
-  ctx.save(); ctx.translate(e.x,e.y);
-  if (e.type==='slime') {
-    ctx.fillStyle='#4CAF50'; ctx.beginPath(); ctx.ellipse(0,2,e.size,e.size*0.7,0,0,Math.PI*2); ctx.fill();
-    ctx.fillStyle='#81C784'; ctx.beginPath(); ctx.ellipse(-3,-2,4,3,0,0,Math.PI*2); ctx.fill(); ctx.beginPath(); ctx.ellipse(3,-2,4,3,0,0,Math.PI*2); ctx.fill();
-    ctx.fillStyle='#1a1a2e'; ctx.beginPath(); ctx.arc(-3,0,1.5,0,Math.PI*2); ctx.fill(); ctx.beginPath(); ctx.arc(3,0,1.5,0,Math.PI*2); ctx.fill();
-  } else if (e.type==='bat') {
-    ctx.fillStyle='#6D4C41'; ctx.beginPath(); ctx.ellipse(0,0,e.size*1.8,e.size*0.6,0,0,Math.PI*2); ctx.fill();
-    ctx.fillStyle='#4E342E'; ctx.beginPath(); ctx.ellipse(0,0,e.size*0.7,e.size*0.7,0,0,Math.PI*2); ctx.fill();
-    ctx.fillStyle='#fff'; ctx.beginPath(); ctx.arc(-2,-1,1.5,0,Math.PI*2); ctx.fill(); ctx.beginPath(); ctx.arc(2,-1,1.5,0,Math.PI*2); ctx.fill();
-    ctx.fillStyle='#1a1a2e'; ctx.beginPath(); ctx.arc(-2,-1,0.8,0,Math.PI*2); ctx.fill(); ctx.beginPath(); ctx.arc(2,-1,0.8,0,Math.PI*2); ctx.fill();
-    ctx.fillStyle='#4E342E'; ctx.beginPath(); ctx.moveTo(-4,-4); ctx.lineTo(-6,-10); ctx.lineTo(-1,-5); ctx.fill();
-    ctx.beginPath(); ctx.moveTo(4,-4); ctx.lineTo(6,-10); ctx.lineTo(1,-5); ctx.fill();
-  } else if (e.type==='gremlin') {
-    ctx.fillStyle='#8BC34A'; ctx.fillRect(-e.size*0.6,-4,e.size*1.2,10);
-    ctx.fillStyle='#9CCC65'; ctx.beginPath(); ctx.arc(0,-9,e.size*0.7,0,Math.PI*2); ctx.fill();
-    ctx.fillStyle='#ff0'; ctx.beginPath(); ctx.arc(-3,-10,2,0,Math.PI*2); ctx.fill(); ctx.beginPath(); ctx.arc(3,-10,2,0,Math.PI*2); ctx.fill();
-    ctx.fillStyle='#1a1a2e'; ctx.beginPath(); ctx.arc(-3,-10,1,0,Math.PI*2); ctx.fill(); ctx.beginPath(); ctx.arc(3,-10,1,0,Math.PI*2); ctx.fill();
-    ctx.fillStyle='#33691E'; ctx.beginPath(); ctx.moveTo(-5,-14); ctx.lineTo(-7,-20); ctx.lineTo(-2,-15); ctx.fill();
-    ctx.beginPath(); ctx.moveTo(5,-14); ctx.lineTo(7,-20); ctx.lineTo(2,-15); ctx.fill();
-    ctx.save(); ctx.rotate(e.angle); ctx.fillStyle='#795548'; ctx.fillRect(e.size*0.6,-1,10,3); ctx.restore();
-  } else if (e.type==='ogre') {
-    ctx.fillStyle='#795548'; ctx.fillRect(-e.size*0.7,0,e.size*1.4,e.size);
-    ctx.fillStyle='#8D6E63'; ctx.beginPath(); ctx.arc(0,-e.size*0.6,e.size*0.85,0,Math.PI*2); ctx.fill();
-    ctx.fillStyle='#ff0'; ctx.beginPath(); ctx.arc(-5,-e.size*0.6-2,3,0,Math.PI*2); ctx.fill(); ctx.beginPath(); ctx.arc(5,-e.size*0.6-2,3,0,Math.PI*2); ctx.fill();
-    ctx.fillStyle='#1a1a2e'; ctx.beginPath(); ctx.arc(-5,-e.size*0.6-2,1.5,0,Math.PI*2); ctx.fill(); ctx.beginPath(); ctx.arc(5,-e.size*0.6-2,1.5,0,Math.PI*2); ctx.fill();
-    ctx.fillStyle='#5D4037'; ctx.fillRect(-e.size*0.7,-e.size*0.3,4,e.size*0.5); ctx.fillRect(e.size*0.7-4,-e.size*0.3,4,e.size*0.5);
-    ctx.save(); ctx.rotate(e.angle); ctx.fillStyle='#5D4037'; ctx.fillRect(e.size*0.8,-3,16,6); ctx.fillStyle='#9E9E9E'; ctx.fillRect(e.size*0.8+12,-5,6,10); ctx.restore();
-  } else if (e.type==='manticore') {
-    const pulse=Math.sin(Date.now()/200)*2;
-    ctx.fillStyle='#8B0000'; ctx.beginPath(); ctx.ellipse(0,0,e.size*0.9,e.size*0.6,0,0,Math.PI*2); ctx.fill();
-    ctx.fillStyle='#A52A2A'; ctx.beginPath(); ctx.arc(e.size*0.5,-e.size*0.3,e.size*0.5,0,Math.PI*2); ctx.fill();
-    ctx.fillStyle='#B71C1C';
-    ctx.beginPath(); ctx.moveTo(0,-e.size*0.3); ctx.lineTo(-e.size*1.5,-e.size*0.8+pulse); ctx.lineTo(-e.size*0.5,0); ctx.fill();
-    ctx.beginPath(); ctx.moveTo(0,-e.size*0.3); ctx.lineTo(e.size*0.3,-e.size*0.8+pulse); ctx.lineTo(e.size*0.2,0); ctx.fill();
-    ctx.fillStyle='#FF6600'; ctx.beginPath(); ctx.arc(e.size*0.35,-e.size*0.35,4,0,Math.PI*2); ctx.fill(); ctx.beginPath(); ctx.arc(e.size*0.65,-e.size*0.35,4,0,Math.PI*2); ctx.fill();
-    ctx.fillStyle='#000'; ctx.beginPath(); ctx.arc(e.size*0.35,-e.size*0.35,2,0,Math.PI*2); ctx.fill(); ctx.beginPath(); ctx.arc(e.size*0.65,-e.size*0.35,2,0,Math.PI*2); ctx.fill();
+// ================================
+// DIBUJAR ENEMIGOS CON SPRITES
+// ================================
+function drawEnemy(ctx, e) {
+  const sprite = sprites[`enemy_${e.type}`];
+  if (sprite) {
+    ctx.save();
+    ctx.translate(e.x, e.y);
+    const flip = Math.cos(e.angle) < 0 ? -1 : 1;
+    ctx.scale(flip, 1);
+    const s = e.size * 2.5;
+    ctx.drawImage(sprite, -s/2, -s/2, s, s);
+    ctx.restore();
+  } else {
+    ctx.save(); ctx.translate(e.x,e.y);
+    ctx.fillStyle='#e24b4a'; ctx.beginPath(); ctx.arc(0,0,e.size,0,Math.PI*2); ctx.fill();
+    ctx.restore();
   }
-  ctx.restore();
-  const barW=e.type==='manticore'?80:e.type==='ogre'?40:24;
+
+  // Barra HP
+  const barW = e.type==='manticore'?80:e.type==='ogre'?40:24;
   ctx.fillStyle='#1a1a2e'; ctx.fillRect(e.x-barW/2,e.y-e.size-12,barW,5);
   const hpColor=e.type==='manticore'?'#FF6600':e.type==='ogre'?'#795548':e.type==='gremlin'?'#8BC34A':e.type==='bat'?'#6D4C41':'#4CAF50';
   ctx.fillStyle=hpColor; ctx.fillRect(e.x-barW/2,e.y-e.size-12,barW*(e.hp/e.maxHp),5);
-  if (e.type==='manticore') { ctx.fillStyle='#FF6600'; ctx.font='bold 14px monospace'; ctx.textAlign='center'; ctx.fillText('MANTICORA',e.x,e.y-e.size-16); ctx.textAlign='left'; }
+  if (e.type==='manticore') {
+    ctx.fillStyle='#FF6600'; ctx.font='bold 14px monospace'; ctx.textAlign='center';
+    ctx.fillText('MANTICORA',e.x,e.y-e.size-16); ctx.textAlign='left';
+  }
 }
 
 // ================================
@@ -497,7 +479,6 @@ function confirmSkin() {
   const data=generateMap(); map=data.map; rooms=data.rooms;
   const r=rooms[0];
   player.x=(r.x+Math.floor(r.w/2))*TILE; player.y=(r.y+Math.floor(r.h/2))*TILE;
-  // Inicializar camara correctamente
   camX=Math.max(0,Math.min(player.x-W/2,COLS*TILE-W));
   camY=Math.max(0,Math.min(player.y-H/2,ROWS*TILE-H));
   bullets.length=drops.length=hpDrops.length=particles.length=chests.length=0;
@@ -659,6 +640,7 @@ function draw() {
 
   const torchFrame=Math.floor(Date.now()/150)%5;
 
+  // Tiles del mapa
   for (let y=0;y<ROWS;y++) {
     for (let x=0;x<COLS;x++) {
       const px=x*TILE, py=y*TILE;
@@ -666,6 +648,7 @@ function draw() {
         ctx.fillStyle='#000'; ctx.fillRect(px,py,TILE,TILE); continue;
       }
       if (map[y][x]===1) {
+        // Pared con sprite
         const wallIdx=(x*3+y*7)%3;
         const wallSprite=sprites[`brick_dark${wallIdx}`];
         if (wallSprite) {
@@ -673,9 +656,7 @@ function draw() {
         } else {
           ctx.fillStyle='#2a1f3d'; ctx.fillRect(px,py,TILE,TILE);
         }
-        ctx.fillStyle='rgba(0,0,0,0.3)';
-        ctx.fillRect(px,py,TILE,2); ctx.fillRect(px,py+TILE-2,TILE,2);
-        ctx.fillRect(px,py,2,TILE); ctx.fillRect(px+TILE-2,py,2,TILE);
+        // Antorcha animada
         if ((x*5+y*3)%18===0) {
           const torchSprite=sprites[`torch${torchFrame}`];
           if (torchSprite) {
@@ -687,6 +668,7 @@ function draw() {
           }
         }
       } else {
+        // Suelo con sprite
         const floorIdx=(x*7+y*11)%3;
         const floorSprite=sprites[`grey_dirt${floorIdx}`];
         if (floorSprite) {
@@ -694,13 +676,16 @@ function draw() {
         } else {
           ctx.fillStyle='#0e0b14'; ctx.fillRect(px,py,TILE,TILE);
         }
-        if (map[y-1]&&map[y-1][x]===1) {
-          ctx.fillStyle='rgba(0,0,0,0.45)'; ctx.fillRect(px,py,TILE,8);
-        }
+        // Sombras en bordes donde hay pared — da profundidad sin cuadricula
+        if (map[y-1]&&map[y-1][x]===1) { ctx.fillStyle='rgba(0,0,0,0.55)'; ctx.fillRect(px,py,TILE,10); }
+        if (map[y+1]&&map[y+1][x]===1) { ctx.fillStyle='rgba(0,0,0,0.3)';  ctx.fillRect(px,py+TILE-6,TILE,6); }
+        if (map[y][x-1]===1)            { ctx.fillStyle='rgba(0,0,0,0.3)';  ctx.fillRect(px,py,8,TILE); }
+        if (map[y][x+1]===1)            { ctx.fillStyle='rgba(0,0,0,0.3)';  ctx.fillRect(px+TILE-8,py,8,TILE); }
       }
     }
   }
 
+  // Luciernagas
   for (const f of fireflies) {
     const tx=Math.floor(f.x/TILE),ty=Math.floor(f.y/TILE);
     if (!revealedTiles.has(`${tx},${ty}`)) continue;
@@ -711,6 +696,7 @@ function draw() {
   }
   ctx.globalAlpha=1;
 
+  // Cofres
   for (const c of chests) {
     if (!revealedTiles.has(`${Math.floor(c.x/TILE)},${Math.floor(c.y/TILE)}`)) continue;
     ctx.save(); ctx.translate(c.x,c.y);
@@ -724,12 +710,14 @@ function draw() {
     ctx.restore();
   }
 
+  // HP drops
   for (const h of hpDrops) {
     ctx.fillStyle='#9FE1CB33'; ctx.beginPath(); ctx.arc(h.x,h.y,12,0,Math.PI*2); ctx.fill();
     ctx.strokeStyle='#9FE1CB'; ctx.lineWidth=1.5; ctx.beginPath(); ctx.arc(h.x,h.y,10,0,Math.PI*2); ctx.stroke();
     ctx.fillStyle='#9FE1CB'; ctx.font='bold 12px monospace'; ctx.textAlign='center'; ctx.fillText('+',h.x,h.y+4); ctx.textAlign='left';
   }
 
+  // Drops armas
   for (const d of drops) {
     ctx.fillStyle=d.weapon.color+'33'; ctx.beginPath(); ctx.arc(d.x,d.y,14,0,Math.PI*2); ctx.fill();
     ctx.strokeStyle=d.weapon.color; ctx.lineWidth=1.5; ctx.beginPath(); ctx.arc(d.x,d.y,12,0,Math.PI*2); ctx.stroke();
@@ -737,17 +725,21 @@ function draw() {
     ctx.fillStyle=d.weapon.color; ctx.font='bold 10px monospace'; ctx.textAlign='center'; ctx.fillText(d.weapon.name,d.x,d.y-16); ctx.textAlign='left';
   }
 
+  // Particulas
   for (const p of particles) { ctx.globalAlpha=p.life/p.maxLife; ctx.fillStyle=p.color; ctx.beginPath(); ctx.arc(p.x,p.y,3,0,Math.PI*2); ctx.fill(); }
   ctx.globalAlpha=1;
 
+  // Balas
   for (const b of bullets) { ctx.fillStyle=b.owner==='enemy'?'#ff6600':currentWeapon.color; ctx.beginPath(); ctx.arc(b.x,b.y,4,0,Math.PI*2); ctx.fill(); }
 
+  // Enemigos
   for (const e of enemies) {
     if (e.dead) continue;
     if (!revealedTiles.has(`${Math.floor(e.x/TILE)},${Math.floor(e.y/TILE)}`)) continue;
     drawEnemy(ctx,e);
   }
 
+  // Jugador
   if (player.iframes===0||Math.floor(player.iframes/4)%2===0) {
     ctx.save(); ctx.translate(player.x,player.y);
     const flip=Math.abs(player.angle)>Math.PI/2?-1:1;
@@ -781,6 +773,9 @@ function draw() {
   ctx.fillStyle='#aaa'; ctx.font='13px monospace'; ctx.fillText(`Piso: ${level}  Enemigos: ${enemiesLeft}`,W-200,26);
 }
 
+// ================================
+// LOOP
+// ================================
 function loop() {
   if (!loopRunning) return;
   if (!gameRunning) {
