@@ -5,7 +5,7 @@ const H = 720;
 canvas.width  = W;
 canvas.height = H;
 
-const TILE = 32;
+const TILE = 48;
 const COLS = 60;
 const ROWS = 40;
 
@@ -260,10 +260,10 @@ function updateRevealedTiles() {
 function openChest(chest) {
   chest.opened=true;
   const roll=Math.random();
+  // Siempre dar algo
   if (chest.gold) {
-    if (roll<0.33) drops.push({x:chest.x,y:chest.y,weapon:WEAPONS[2+Math.floor(Math.random()*(WEAPONS.length-2))]});
-    else if (roll<0.66) hpDrops.push({x:chest.x,y:chest.y,amount:50});
-    else { hpDrops.push({x:chest.x,y:chest.y,amount:30}); drops.push({x:chest.x+20,y:chest.y,weapon:WEAPONS[Math.floor(Math.random()*WEAPONS.length)]}); }
+    hpDrops.push({x:chest.x,y:chest.y-20,amount:40});
+    drops.push({x:chest.x+20,y:chest.y,weapon:WEAPONS[1+Math.floor(Math.random()*(WEAPONS.length-1))]});
   } else {
     if (roll<0.5) hpDrops.push({x:chest.x,y:chest.y,amount:20});
     else drops.push({x:chest.x,y:chest.y,weapon:WEAPONS[Math.floor(Math.random()*WEAPONS.length)]});
@@ -491,7 +491,7 @@ function quitToMenu() {
 // ================================
 function update() {
   camX=Math.max(0,Math.min(player.x-W/2,COLS*TILE-W));
-  camY=Math.max(0,Math.min(player.y-H/2,ROWS*TILE-H));
+  camY=Math.max(0,Math.min(player.y-H*0.65,ROWS*TILE-H));
   updateRevealedTiles();
   player.angle=Math.atan2(mouse.y+camY-player.y, mouse.x+camX-player.x);
 
@@ -604,7 +604,7 @@ function update() {
     }
   }
 
-  for (let i=hpDrops.length-1;i>=0;i--) { const h=hpDrops[i],dx=player.x-h.x,dy=player.y-h.y; if (Math.sqrt(dx*dx+dy*dy)<20) { player.hp=Math.min(player.maxHp,player.hp+h.amount); spawnParticles(player.x,player.y,'#9FE1CB',6); hpDrops.splice(i,1); } }
+  for (let i=hpDrops.length-1;i>=0;i--) { const h=hpDrops[i],dx=player.x-h.x,dy=player.y-h.y; if (Math.sqrt(dx*dx+dy*dy)<20&&player.hp<120) { player.hp=Math.min(player.maxHp,player.hp+h.amount); spawnParticles(player.x,player.y,'#9FE1CB',6); hpDrops.splice(i,1); } }
   for (let i=chests.length-1;i>=0;i--) { const c=chests[i]; if (c.opened) continue; const dx=player.x-c.x,dy=player.y-c.y; if (Math.sqrt(dx*dx+dy*dy)<24) openChest(c); }
   for (let i=particles.length-1;i>=0;i--) { const p=particles[i]; p.x+=p.vx; p.y+=p.vy; p.vx*=0.92; p.vy*=0.92; p.life--; if (p.life<=0) particles.splice(i,1); }
   for (const f of fireflies) {
@@ -754,8 +754,8 @@ function draw() {
   // HUD con corazones
   ctx.fillStyle='rgba(0,0,0,0.65)'; ctx.fillRect(0,0,W,48);
   const heartFull=sprites['heart_full'], heartEmpty=sprites['heart_empty'];
-  const maxHearts=Math.ceil(player.maxHp/20);
-  const fullHearts=Math.floor(player.hp/20);
+  const maxHearts=6;
+  const fullHearts=Math.min(6,Math.round(player.hp/20));
   for (let i=0;i<maxHearts;i++) {
     const hSprite=i<fullHearts?heartFull:heartEmpty;
     if (hSprite) ctx.drawImage(hSprite,10+i*20,10,18,18);
