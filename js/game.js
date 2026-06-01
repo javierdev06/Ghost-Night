@@ -26,6 +26,10 @@ function loadSprites() {
       'player_run_f0','player_run_f1','player_run_f2','player_run_f3',
       'chest_closed','chest_open',
       'heart_full','heart_empty',
+      'player_wizzard_f0','player_wizzard_f1','player_wizzard_f2','player_wizzard_f3',
+      'player_wizzard_run_f0','player_wizzard_run_f1','player_wizzard_run_f2','player_wizzard_run_f3',
+      'player_lizard_f0','player_lizard_f1','player_lizard_f2','player_lizard_f3',
+      'player_lizard_run_f0','player_lizard_run_f1','player_lizard_run_f2','player_lizard_run_f3',
     ];
     let loaded = 0;
     for (const name of files) {
@@ -298,12 +302,12 @@ function gameOver() { saveProgress(); gameRunning=false; }
 // DIBUJAR JUGADOR CON SPRITE 0x72
 // ================================
 function drawPlayer(c) {
-  const frameKey = playerMoving ? `player_run_f${playerAnimFrame}` : `player_f${playerAnimFrame}`;
+  const prefix = SKINS[selectedSkin]?.prefix || 'player';
+  const frameKey = playerMoving ? `${prefix}_run_f${playerAnimFrame}` : `${prefix}_f${playerAnimFrame}`;
   const sprite = sprites[frameKey];
   if (sprite) {
-    c.drawImage(sprite, -12, -26, 26, 28);
+    c.drawImage(sprite, -20, -36, 40, 44);
   } else {
-    // Fallback
     c.fillStyle='#AFA9EC'; c.fillRect(-8,-20,16,24);
     c.fillStyle='#f0c090'; c.beginPath(); c.arc(0,-24,7,0,Math.PI*2); c.fill();
   }
@@ -341,6 +345,10 @@ function showMenu() {
   ['levelMap','charSelect','skinSelect','pauseMenu','levelComplete'].forEach(id=>document.getElementById(id).style.display='none');
   document.getElementById('menu').style.display='flex';
 }
+
+// Cargar sprites al inicio
+loadSprites();
+
 
 function showLevelMap() {
   document.getElementById('menu').style.display='none';
@@ -422,8 +430,9 @@ function buildSkinGrid() {
     grid.appendChild(card);
     // Dibujar preview del sprite
     const pctx=pc.getContext('2d');
-    const sprite=sprites['player_f0'];
-    if (sprite) { pctx.drawImage(sprite,5,10,50,54); }
+    const prefix = s.prefix || 'player';
+    const sprite = sprites[`${prefix}_f0`];
+    if (sprite) { pctx.drawImage(sprite,2,4,56,62); }
     else {
       pctx.save(); pctx.translate(30,45);
       pctx.fillStyle='#AFA9EC'; pctx.fillRect(-10,-20,20,24);
@@ -446,9 +455,9 @@ function confirmSkin() {
   camY=Math.max(0,Math.min(player.y-H/2,ROWS*TILE-H));
   bullets.length=drops.length=hpDrops.length=particles.length=chests.length=0;
   revealedTiles.clear(); spawnEnemies(); spawnChests();
-  if (!loopRunning) {
-    loadSprites().then(()=>{ loopRunning=true; loop(); });
-  }
+  loadSprites().then(()=>{
+    if (!loopRunning) { loopRunning=true; loop(); }
+  });
 }
 
 window.addEventListener('keydown', e=>{
@@ -472,6 +481,9 @@ function quitToMenu() {
   document.getElementById('pauseMenu').style.display='none';
   document.getElementById('levelComplete').style.display='none';
   document.getElementById('menu').style.display='flex';
+  // Resetear estado para nueva partida
+  bullets.length=drops.length=hpDrops.length=particles.length=chests.length=enemies.length=0;
+  revealedTiles.clear();
 }
 
 // ================================
