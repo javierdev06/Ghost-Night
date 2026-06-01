@@ -438,7 +438,17 @@ function startLevel(n) {
   level=n;
   const data=generateMap(); map=data.map; rooms=data.rooms;
   const r=rooms[0];
-  player.x=r.x*TILE; player.y=r.y*TILE;
+  // Buscar celda libre cerca del spawn
+  let spawnX=r.x, spawnY=r.y;
+  for (let dy=-3;dy<=3;dy++) {
+  for (let dx=-3;dx<=3;dx++) {
+    const nx=r.x+dx, ny=r.y+dy;
+    if (ny>=0&&ny<ROWS&&nx>=0&&nx<COLS&&map[ny][nx]===0) {
+      spawnX=nx; spawnY=ny; break;
+    }
+  }
+}
+player.x=spawnX*TILE+TILE/2; player.y=spawnY*TILE+TILE/2;
   camX=Math.max(0,Math.min(player.x-W/2,COLS*TILE-W));
   camY=Math.max(0,Math.min(player.y-H*0.7,ROWS*TILE-H));
   player.hp=120;
@@ -511,7 +521,17 @@ function confirmSkin() {
   gameRunning=true; levelComplete=false; paused=false; kills=0; level=1;
   const data=generateMap(); map=data.map; rooms=data.rooms;
   const r=rooms[0];
-  player.x=r.x*TILE; player.y=r.y*TILE;
+  // Buscar celda libre cerca del spawn
+  let spawnX=r.x, spawnY=r.y;
+  for (let dy=-3;dy<=3;dy++) {
+  for (let dx=-3;dx<=3;dx++) {
+    const nx=r.x+dx, ny=r.y+dy;
+    if (ny>=0&&ny<ROWS&&nx>=0&&nx<COLS&&map[ny][nx]===0) {
+      spawnX=nx; spawnY=ny; break;
+    }
+  }
+}
+player.x=spawnX*TILE+TILE/2; player.y=spawnY*TILE+TILE/2;
   camX=Math.max(0,Math.min(player.x-W/2,COLS*TILE-W));
   camY=Math.max(0,Math.min(player.y-H*0.7,ROWS*TILE-H));
   bullets.length=drops.length=hpDrops.length=particles.length=chests.length=0;
