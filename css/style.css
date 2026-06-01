@@ -38,7 +38,7 @@ canvas {
   z-index: 10;
 }
 
-#menu { background: #0d0d1c; display: flex; }
+#menu { background: transparent; display: flex; }
 #charSelect, #skinSelect, #levelMap { background: #0d0d1c; }
 #levelComplete, #pauseMenu { background: rgba(0,0,0,0.85); }
 

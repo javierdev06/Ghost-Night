@@ -61,13 +61,12 @@ const WEAPONS = [
 ];
 let currentWeapon = WEAPONS[0];
 
-// Skins — cada una usa un personaje distinto del pack 0x72
 const SKINS = [
-  { id: 'knight',   name: 'Guerrero',  prefix: 'player'         },
-  { id: 'wizzard',  name: 'Mago',      prefix: 'player_wizzard' },
-  { id: 'lizard',   name: 'Lagarto',   prefix: 'player_lizard'  },
+  { id: 'knight',  name: 'Guerrero', prefix: 'player'         },
+  { id: 'wizzard', name: 'Mago',     prefix: 'player_wizzard' },
+  { id: 'lizard',  name: 'Lagarto',  prefix: 'player_lizard'  },
 ];
-let selectedSkin = 0; // indice en SKINS
+let selectedSkin = 0;
 
 const HEROES = [
   { name: 'Guerrero',  color: '#AFA9EC', desc: 'Equilibrado. Resistente en combate.', hp: 120, speed: 3,   weapon: 'Pistola',  stats: { HP: '120', Velocidad: 'Media',      Arma: 'Pistola'  } },
@@ -83,6 +82,17 @@ let selectedHero = 0;
 let playerAnimFrame = 0;
 let playerAnimTimer = 0;
 let playerMoving    = false;
+
+// Menu animado
+let menuLoopRunning = false;
+const menuParticles = Array.from({length:60}, ()=>({
+  x: Math.random()*1280,
+  y: Math.random()*720,
+  size: Math.random()*2+0.5,
+  speed: Math.random()*0.5+0.2,
+  opacity: Math.random()*Math.PI,
+  color: Math.random()<0.5 ? '#AFA9EC' : '#fac775',
+}));
 
 // ================================
 // GUARDAR Y CARGAR PROGRESO
@@ -112,19 +122,15 @@ function resetProgress() {
 loadProgress();
 
 // ================================
-// GENERACION DEL MAPA
+// GENERACION DEL MAPA - CELLULAR AUTOMATA
 // ================================
 function generateMap() {
-  // Cellular automata — genera cuevas organicas
   let map = Array.from({ length: ROWS }, () =>
     Array.from({ length: COLS }, () => Math.random() < 0.45 ? 1 : 0)
   );
-
-  // Bordes siempre son paredes
   for (let y=0; y<ROWS; y++) { map[y][0]=1; map[y][COLS-1]=1; }
   for (let x=0; x<COLS; x++) { map[0][x]=1; map[ROWS-1][x]=1; }
 
-  // Suavizar 5 veces para formar cuevas naturales
   for (let pass=0; pass<5; pass++) {
     const next = map.map(r=>[...r]);
     for (let y=1; y<ROWS-1; y++) {
@@ -139,10 +145,7 @@ function generateMap() {
     map=next;
   }
 
-  // Encontrar salas (areas abiertas) para spawn
-  const rooms = [];
   const visited = Array.from({length:ROWS},()=>Array(COLS).fill(false));
-
   function floodFill(sy, sx) {
     const cells = [];
     const queue = [[sy,sx]];
@@ -153,42 +156,32 @@ function generateMap() {
       for (const [dy,dx] of [[-1,0],[1,0],[0,-1],[0,1]]) {
         const ny=cy+dy, nx=cx+dx;
         if (ny>=0&&ny<ROWS&&nx>=0&&nx<COLS&&!visited[ny][nx]&&map[ny][nx]===0) {
-          visited[ny][nx]=true;
-          queue.push([ny,nx]);
+          visited[ny][nx]=true; queue.push([ny,nx]);
         }
       }
     }
     return cells;
   }
 
-  // Encontrar todas las regiones y quedarse con la más grande
   let largestRegion = [];
-  for (let y=1;y<ROWS-1;y++) {
-    for (let x=1;x<COLS-1;x++) {
+  for (let y=1;y<ROWS-1;y++)
+    for (let x=1;x<COLS-1;x++)
       if (!visited[y][x]&&map[y][x]===0) {
         const region=floodFill(y,x);
         if (region.length>largestRegion.length) largestRegion=region;
       }
-    }
-  }
 
-  // Rellenar todo excepto la region mas grande
-  for (let y=0;y<ROWS;y++)
-    for (let x=0;x<COLS;x++)
-      map[y][x]=1;
+  for (let y=0;y<ROWS;y++) for (let x=0;x<COLS;x++) map[y][x]=1;
   for (const {y,x} of largestRegion) map[y][x]=0;
 
-  // Crear "salas" virtuales para spawn de enemigos
-  // Dividir la region en zonas
+  const rooms = [];
   const regionSize=largestRegion.length;
   const zoneCount=Math.min(10, Math.floor(regionSize/20));
-  const step=Math.floor(regionSize/zoneCount);
+  const step=Math.floor(regionSize/Math.max(zoneCount,1));
   for (let i=0;i<zoneCount;i++) {
     const cell=largestRegion[i*step];
     rooms.push({x:cell.x,y:cell.y,w:3,h:3});
   }
-
-  // Asegurar al menos 2 salas
   if (rooms.length<2) {
     rooms.push({x:Math.floor(COLS/2),y:Math.floor(ROWS/2),w:3,h:3});
     rooms.push({x:Math.floor(COLS/3),y:Math.floor(ROWS/3),w:3,h:3});
@@ -203,18 +196,22 @@ let { map, rooms } = generateMap();
 // JUGADOR
 // ================================
 const startRoom = rooms[0];
-const playerStartX = (startRoom.x+Math.floor(startRoom.w/2))*TILE;
-const playerStartY = (startRoom.y+Math.floor(startRoom.h/2))*TILE;
+const playerStartX = startRoom.x*TILE;
+const playerStartY = startRoom.y*TILE;
 const player = {
   x:playerStartX, y:playerStartY,
-  size:10, speed:3, angle:0, hp:100, maxHp:100, iframes:0, meleeSwing:0,
+  size:10, speed:3, angle:0, hp:120, maxHp:120, iframes:0, meleeSwing:0,
 };
 let camX = Math.max(0,Math.min(playerStartX-W/2,COLS*TILE-W));
-let camY = Math.max(0,Math.min(playerStartY-H/2,ROWS*TILE-H));
+let camY = Math.max(0,Math.min(playerStartY-H*0.7,ROWS*TILE-H));
 
 const enemies=[], drops=[], hpDrops=[], bullets=[], particles=[], chests=[];
 const revealedTiles = new Set();
-const fireflies = Array.from({length:30},()=>({ x:Math.random()*COLS*TILE, y:Math.random()*ROWS*TILE, vx:(Math.random()-0.5)*0.5, vy:(Math.random()-0.5)*0.5, life:Math.random()*100, maxLife:100, bright:Math.random() }));
+const fireflies = Array.from({length:30},()=>({
+  x:Math.random()*COLS*TILE, y:Math.random()*ROWS*TILE,
+  vx:(Math.random()-0.5)*0.5, vy:(Math.random()-0.5)*0.5,
+  life:Math.random()*100, maxLife:100, bright:Math.random()
+}));
 
 // ================================
 // ENEMIGOS
@@ -226,7 +223,7 @@ function getEnemyStats(type) {
     gremlin:  { size:18, speed:1.4+level*0.07, hp:35+level*8,   dmg:10 },
     ogre:     { size:28, speed:0.9+level*0.05, hp:80+level*15,  dmg:18 },
     manticore:{ size:42, speed:1.0+level*0.04, hp:600+level*80, dmg:30 },
-  }[type] || { size:12, speed:1.2, hp:30, dmg:8 };
+  }[type] || { size:18, speed:1.2, hp:30, dmg:8 };
 }
 
 function spawnEnemies() {
@@ -237,15 +234,13 @@ function spawnEnemies() {
     const r=rooms[i];
     if (isBossFloor&&i===rooms.length-1) {
       const s=getEnemyStats('manticore');
-      enemies.push({x:(r.x+Math.floor(r.w/2))*TILE,y:(r.y+Math.floor(r.h/2))*TILE,size:s.size,speed:s.speed,hp:s.hp,maxHp:s.hp,angle:0,type:'manticore',lastShot:0,dead:false});
+      enemies.push({x:r.x*TILE,y:r.y*TILE,size:s.size,speed:s.speed,hp:s.hp,maxHp:s.hp,angle:0,type:'manticore',lastShot:0,dead:false});
     } else {
       const count=1+Math.floor(Math.random()*(1+Math.floor(level/3)));
       for (let j=0;j<count;j++) {
         const type=typePool[Math.floor(Math.random()*typePool.length)];
-        const ex=(r.x+1+Math.floor(Math.random()*(r.w-2)))*TILE;
-        const ey=(r.y+1+Math.floor(Math.random()*(r.h-2)))*TILE;
         const s=getEnemyStats(type);
-        enemies.push({x:ex,y:ey,size:s.size,speed:s.speed,hp:s.hp,maxHp:s.hp,angle:0,type,lastShot:0,dead:false});
+        enemies.push({x:r.x*TILE,y:r.y*TILE,size:s.size,speed:s.speed,hp:s.hp,maxHp:s.hp,angle:0,type,lastShot:0,dead:false});
       }
     }
   }
@@ -254,10 +249,10 @@ function spawnEnemies() {
 function spawnChests() {
   chests.length=0;
   for (let i=2;i<rooms.length-1;i++) {
-    if (Math.random()<0.5) {
+    if (Math.random()<0.6) {
       const r=rooms[i];
       const goldChance=Math.min(0.1+level*0.04,0.6);
-      chests.push({x:(r.x+Math.floor(r.w/2))*TILE,y:(r.y+Math.floor(r.h/2)-1)*TILE,gold:Math.random()<goldChance,opened:false});
+      chests.push({x:r.x*TILE,y:r.y*TILE,gold:Math.random()<goldChance,opened:false});
     }
   }
 }
@@ -297,7 +292,6 @@ function updateRevealedTiles() {
 function openChest(chest) {
   chest.opened=true;
   const roll=Math.random();
-  // Siempre dar algo
   if (chest.gold) {
     hpDrops.push({x:chest.x,y:chest.y-20,amount:40});
     drops.push({x:chest.x+20,y:chest.y,weapon:WEAPONS[1+Math.floor(Math.random()*(WEAPONS.length-1))]});
@@ -312,10 +306,10 @@ function nextLevel() {
   level++;
   const data=generateMap(); map=data.map; rooms=data.rooms;
   const r=rooms[0];
-  player.x=(r.x+Math.floor(r.w/2))*TILE; player.y=(r.y+Math.floor(r.h/2))*TILE;
+  player.x=r.x*TILE; player.y=r.y*TILE;
   camX=Math.max(0,Math.min(player.x-W/2,COLS*TILE-W));
-  camY=Math.max(0,Math.min(player.y-H/2,ROWS*TILE-H));
-  player.hp=Math.min(player.maxHp,player.hp+30);
+  camY=Math.max(0,Math.min(player.y-H*0.7,ROWS*TILE-H));
+  player.hp=Math.min(player.maxHp,player.hp+40);
   bullets.length=drops.length=hpDrops.length=particles.length=chests.length=0;
   revealedTiles.clear(); spawnEnemies(); spawnChests();
 }
@@ -336,14 +330,40 @@ function continueGame() {
 function gameOver() { saveProgress(); gameRunning=false; }
 
 // ================================
-// DIBUJAR JUGADOR CON SPRITE 0x72
+// MENU ANIMADO
+// ================================
+function menuLoop() {
+  if (!menuLoopRunning) return;
+
+  const grad=ctx.createLinearGradient(0,0,0,H);
+  grad.addColorStop(0,'#050510');
+  grad.addColorStop(1,'#0d0d1c');
+  ctx.fillStyle=grad; ctx.fillRect(0,0,W,H);
+
+  for (const p of menuParticles) {
+    p.y-=p.speed;
+    p.opacity+=0.02;
+    if (p.y<0) { p.y=H; p.x=Math.random()*W; p.opacity=0; }
+    ctx.globalAlpha=Math.abs(Math.sin(p.opacity))*0.7;
+    ctx.fillStyle=p.color;
+    ctx.beginPath(); ctx.arc(p.x,p.y,p.size,0,Math.PI*2); ctx.fill();
+  }
+  ctx.globalAlpha=1;
+
+
+
+  requestAnimationFrame(menuLoop);
+}
+
+// ================================
+// DIBUJAR JUGADOR
 // ================================
 function drawPlayer(c) {
-  const prefix = SKINS[selectedSkin]?.prefix || 'player';
-  const frameKey = playerMoving ? `${prefix}_run_f${playerAnimFrame}` : `${prefix}_f${playerAnimFrame}`;
-  const sprite = sprites[frameKey];
+  const prefix=SKINS[selectedSkin]?.prefix||'player';
+  const frameKey=playerMoving?`${prefix}_run_f${playerAnimFrame}`:`${prefix}_f${playerAnimFrame}`;
+  const sprite=sprites[frameKey];
   if (sprite) {
-    c.drawImage(sprite, -20, -36, 40, 44);
+    c.drawImage(sprite,-20,-36,40,44);
   } else {
     c.fillStyle='#AFA9EC'; c.fillRect(-8,-20,16,24);
     c.fillStyle='#f0c090'; c.beginPath(); c.arc(0,-24,7,0,Math.PI*2); c.fill();
@@ -351,10 +371,10 @@ function drawPlayer(c) {
 }
 
 // ================================
-// DIBUJAR ENEMIGOS CON SPRITES 0x72
+// DIBUJAR ENEMIGOS
 // ================================
 function drawEnemy(ctx, e) {
-  const sprite = sprites[`enemy_${e.type}`];
+  const sprite=sprites[`enemy_${e.type}`];
   if (sprite) {
     ctx.save(); ctx.translate(e.x,e.y);
     const flip=Math.cos(e.angle)<0?-1:1;
@@ -367,7 +387,7 @@ function drawEnemy(ctx, e) {
     ctx.fillStyle='#e24b4a'; ctx.beginPath(); ctx.arc(0,0,e.size,0,Math.PI*2); ctx.fill();
     ctx.restore();
   }
-  const barW=e.type==='manticore'?80:e.type==='ogre'?44:26;
+  const barW=e.type==='manticore'?90:e.type==='ogre'?50:30;
   ctx.fillStyle='#1a1a2e'; ctx.fillRect(e.x-barW/2,e.y-e.size-14,barW,5);
   const hpColor=e.type==='manticore'?'#FF6600':e.type==='ogre'?'#795548':e.type==='gremlin'?'#8BC34A':e.type==='bat'?'#6D4C41':'#4CAF50';
   ctx.fillStyle=hpColor; ctx.fillRect(e.x-barW/2,e.y-e.size-14,barW*(e.hp/e.maxHp),5);
@@ -381,11 +401,17 @@ function showMenu() {
   loopRunning=false; gameRunning=false;
   ['levelMap','charSelect','skinSelect','pauseMenu','levelComplete'].forEach(id=>document.getElementById(id).style.display='none');
   document.getElementById('menu').style.display='flex';
+  ctx.clearRect(0,0,W,H);
+  if (!menuLoopRunning) {
+    menuLoopRunning=true;
+    menuLoop();
+  }
 }
 
-// Cargar sprites al inicio
-loadSprites();
-
+loadSprites().then(() => {
+  menuLoopRunning=true;
+  menuLoop();
+});
 
 function showLevelMap() {
   document.getElementById('menu').style.display='none';
@@ -407,14 +433,15 @@ function buildLevelGrid() {
 }
 
 function startLevel(n) {
+  menuLoopRunning=false;
   document.getElementById('levelMap').style.display='none';
   level=n;
   const data=generateMap(); map=data.map; rooms=data.rooms;
   const r=rooms[0];
-  player.x=(r.x+Math.floor(r.w/2))*TILE; player.y=(r.y+Math.floor(r.h/2))*TILE;
+  player.x=r.x*TILE; player.y=r.y*TILE;
   camX=Math.max(0,Math.min(player.x-W/2,COLS*TILE-W));
-  camY=Math.max(0,Math.min(player.y-H/2,ROWS*TILE-H));
-  player.hp=player.maxHp;
+  camY=Math.max(0,Math.min(player.y-H*0.7,ROWS*TILE-H));
+  player.hp=120;
   bullets.length=drops.length=hpDrops.length=particles.length=chests.length=0;
   revealedTiles.clear(); spawnEnemies(); spawnChests();
   gameRunning=true; levelComplete=false; paused=false;
@@ -434,6 +461,7 @@ function buildCharGrid() {
 }
 
 function startGame() {
+  menuLoopRunning=false;
   document.getElementById('menu').style.display='none';
   document.getElementById('charSelect').style.display='flex';
   buildCharGrid();
@@ -455,20 +483,15 @@ function buildSkinGrid() {
   SKINS.forEach((s,i)=>{
     const card=document.createElement('div');
     card.className='skin-card'+(i===selectedSkin?' selected':'');
-    // Preview con sprite del jugador
     const pc=document.createElement('canvas'); pc.width=60; pc.height=70; pc.className='skin-preview';
     card.appendChild(pc);
     const nameEl=document.createElement('div'); nameEl.className='skin-name'; nameEl.textContent=s.name;
     card.appendChild(nameEl);
-    card.onclick=()=>{
-      document.querySelectorAll('.skin-card').forEach(c=>c.classList.remove('selected'));
-      card.classList.add('selected'); selectedSkin=i;
-    };
+    card.onclick=()=>{ document.querySelectorAll('.skin-card').forEach(c=>c.classList.remove('selected')); card.classList.add('selected'); selectedSkin=i; };
     grid.appendChild(card);
-    // Dibujar preview del sprite
     const pctx=pc.getContext('2d');
-    const prefix = s.prefix || 'player';
-    const sprite = sprites[`${prefix}_f0`];
+    const prefix=s.prefix||'player';
+    const sprite=sprites[`${prefix}_f0`];
     if (sprite) { pctx.drawImage(sprite,2,4,56,62); }
     else {
       pctx.save(); pctx.translate(30,45);
@@ -480,16 +503,17 @@ function buildSkinGrid() {
 }
 
 function confirmSkin() {
+  menuLoopRunning=false;
   document.getElementById('skinSelect').style.display='none';
   const hero=HEROES[selectedHero];
-  player.hp=hero.hp; player.maxHp=hero.hp; player.speed=hero.speed;
+  player.hp=120; player.maxHp=120; player.speed=hero.speed;
   currentWeapon=WEAPONS.find(w=>w.name===hero.weapon)||WEAPONS[0];
   gameRunning=true; levelComplete=false; paused=false; kills=0; level=1;
   const data=generateMap(); map=data.map; rooms=data.rooms;
   const r=rooms[0];
-  player.x=(r.x+Math.floor(r.w/2))*TILE; player.y=(r.y+Math.floor(r.h/2))*TILE;
+  player.x=r.x*TILE; player.y=r.y*TILE;
   camX=Math.max(0,Math.min(player.x-W/2,COLS*TILE-W));
-  camY=Math.max(0,Math.min(player.y-H/2,ROWS*TILE-H));
+  camY=Math.max(0,Math.min(player.y-H*0.7,ROWS*TILE-H));
   bullets.length=drops.length=hpDrops.length=particles.length=chests.length=0;
   revealedTiles.clear(); spawnEnemies(); spawnChests();
   loadSprites().then(()=>{
@@ -514,13 +538,18 @@ canvas.addEventListener('mouseup',   ()=>mouse.down=false);
 function pauseGame()  { paused=true;  document.getElementById('pauseMenu').style.display='flex'; }
 function resumeGame() { paused=false; document.getElementById('pauseMenu').style.display='none'; }
 function quitToMenu() {
+  menuLoopRunning=false;
   paused=false; loopRunning=false; gameRunning=false; levelComplete=false;
   document.getElementById('pauseMenu').style.display='none';
   document.getElementById('levelComplete').style.display='none';
-  document.getElementById('menu').style.display='flex';
-  // Resetear estado para nueva partida
   bullets.length=drops.length=hpDrops.length=particles.length=chests.length=enemies.length=0;
   revealedTiles.clear();
+  ctx.clearRect(0,0,W,H);
+  document.getElementById('menu').style.display='flex';
+  setTimeout(()=>{
+    menuLoopRunning=true;
+    menuLoop();
+  }, 50);
 }
 
 // ================================
@@ -528,7 +557,7 @@ function quitToMenu() {
 // ================================
 function update() {
   camX=Math.max(0,Math.min(player.x-W/2,COLS*TILE-W));
-  camY=Math.max(0,Math.min(player.y-H*0.65,ROWS*TILE-H));
+  camY=Math.max(0,Math.min(player.y-H*0.7,ROWS*TILE-H));
   updateRevealedTiles();
   player.angle=Math.atan2(mouse.y+camY-player.y, mouse.x+camX-player.x);
 
@@ -545,7 +574,6 @@ function update() {
   if (player.iframes>0) player.iframes--;
   if (player.meleeSwing>0) player.meleeSwing--;
 
-  // Animacion del jugador
   playerMoving=(dx!==0||dy!==0);
   playerAnimTimer++;
   if (playerAnimTimer>8) { playerAnimTimer=0; playerAnimFrame=(playerAnimFrame+1)%4; }
@@ -626,7 +654,6 @@ function update() {
     if (player.iframes===0&&elen<e.size+player.size) { player.hp-=stats.dmg; player.iframes=40; spawnParticles(player.x,player.y,'#e24b4a',6); }
   }
 
-  // Recoger arma con E
   let nearbyDrop=null;
   for (const d of drops) {
     const dx=player.x-d.x, dy=player.y-d.y;
@@ -641,9 +668,10 @@ function update() {
     }
   }
 
-  for (let i=hpDrops.length-1;i>=0;i--) { const h=hpDrops[i],dx=player.x-h.x,dy=player.y-h.y; if (Math.sqrt(dx*dx+dy*dy)<20&&player.hp<120) { player.hp=Math.min(player.maxHp,player.hp+h.amount); spawnParticles(player.x,player.y,'#9FE1CB',6); hpDrops.splice(i,1); } }
-  for (let i=chests.length-1;i>=0;i--) { const c=chests[i]; if (c.opened) continue; const dx=player.x-c.x,dy=player.y-c.y; if (Math.sqrt(dx*dx+dy*dy)<24) openChest(c); }
+  for (let i=hpDrops.length-1;i>=0;i--) { const h=hpDrops[i],dx=player.x-h.x,dy=player.y-h.y; if (Math.sqrt(dx*dx+dy*dy)<20&&player.hp<120) { player.hp=Math.min(120,player.hp+h.amount); spawnParticles(player.x,player.y,'#9FE1CB',6); hpDrops.splice(i,1); } }
+  for (let i=chests.length-1;i>=0;i--) { const c=chests[i]; if (c.opened) continue; const dx=player.x-c.x,dy=player.y-c.y; if (Math.sqrt(dx*dx+dy*dy)<30) openChest(c); }
   for (let i=particles.length-1;i>=0;i--) { const p=particles[i]; p.x+=p.vx; p.y+=p.vy; p.vx*=0.92; p.vy*=0.92; p.life--; if (p.life<=0) particles.splice(i,1); }
+
   for (const f of fireflies) {
     f.x+=f.vx; f.y+=f.vy;
     f.vx+=(Math.random()-0.5)*0.1; f.vy+=(Math.random()-0.5)*0.1;
@@ -670,7 +698,6 @@ function draw() {
   const floorAtlas=sprites['atlas_floor'];
   const floorTiles=[[0,0],[16,0],[32,0],[48,0],[64,0],[0,16],[16,16],[32,16]];
 
-  // Tiles
   for (let y=0;y<ROWS;y++) {
     for (let x=0;x<COLS;x++) {
       const px=x*TILE, py=y*TILE;
@@ -684,7 +711,7 @@ function draw() {
           const torchSprite=sprites[`torch${torchFrame}`];
           if (torchSprite) {
             ctx.drawImage(torchSprite,px+8,py+2,16,28);
-            const grd=ctx.createRadialGradient(px+16,py+16,2,px+16,py+16,56);
+            const grd=ctx.createRadialGradient(px+TILE/2,py+TILE/2,2,px+TILE/2,py+TILE/2,70);
             grd.addColorStop(0,'rgba(255,140,0,0.18)'); grd.addColorStop(1,'rgba(255,140,0,0)');
             ctx.fillStyle=grd; ctx.fillRect(px-24,py-24,TILE+48,TILE+48);
           }
@@ -703,7 +730,6 @@ function draw() {
     }
   }
 
-  // Luciernagas
   for (const f of fireflies) {
     const tx=Math.floor(f.x/TILE),ty=Math.floor(f.y/TILE);
     if (!revealedTiles.has(`${tx},${ty}`)) continue;
@@ -712,65 +738,50 @@ function draw() {
   }
   ctx.globalAlpha=1;
 
-  // Cofres con sprite
   for (const c of chests) {
     if (!revealedTiles.has(`${Math.floor(c.x/TILE)},${Math.floor(c.y/TILE)}`)) continue;
     const chestSprite=sprites[c.opened?'chest_open':'chest_closed'];
     if (chestSprite) {
       ctx.drawImage(chestSprite,c.x-20,c.y-20,40,40);
-      if (!c.opened&&c.gold) { ctx.globalAlpha=0.3+Math.sin(Date.now()/300)*0.2; ctx.fillStyle='#FFD600'; ctx.beginPath(); ctx.arc(c.x,c.y,16,0,Math.PI*2); ctx.fill(); ctx.globalAlpha=1; }
+      if (!c.opened&&c.gold) { ctx.globalAlpha=0.3+Math.sin(Date.now()/300)*0.2; ctx.fillStyle='#FFD600'; ctx.beginPath(); ctx.arc(c.x,c.y,20,0,Math.PI*2); ctx.fill(); ctx.globalAlpha=1; }
     } else {
       ctx.save(); ctx.translate(c.x,c.y);
-      if (c.opened) { ctx.fillStyle='#5D4037'; ctx.fillRect(-10,-8,20,14); }
-      else { ctx.fillStyle=c.gold?'#F9A825':'#9E9E9E'; ctx.fillRect(-10,-8,20,14); }
+      ctx.fillStyle=c.gold?'#F9A825':'#9E9E9E'; ctx.fillRect(-14,-10,28,20);
       ctx.restore();
     }
   }
 
-  // HP drops con sprite corazon
   for (const h of hpDrops) {
     const heartSprite=sprites['heart_full'];
     if (heartSprite) { ctx.drawImage(heartSprite,h.x-14,h.y-14,28,28); }
-    else {
-      ctx.fillStyle='#9FE1CB33'; ctx.beginPath(); ctx.arc(h.x,h.y,12,0,Math.PI*2); ctx.fill();
-      ctx.strokeStyle='#9FE1CB'; ctx.lineWidth=1.5; ctx.beginPath(); ctx.arc(h.x,h.y,10,0,Math.PI*2); ctx.stroke();
-      ctx.fillStyle='#9FE1CB'; ctx.font='bold 12px monospace'; ctx.textAlign='center'; ctx.fillText('+',h.x,h.y+4); ctx.textAlign='left';
-    }
+    else { ctx.fillStyle='#e24b4a'; ctx.beginPath(); ctx.arc(h.x,h.y,12,0,Math.PI*2); ctx.fill(); }
   }
 
-  // Drops armas con indicador E
   for (const d of drops) {
-    ctx.fillStyle=d.weapon.color+'33'; ctx.beginPath(); ctx.arc(d.x,d.y,14,0,Math.PI*2); ctx.fill();
-    ctx.strokeStyle=d.weapon.color; ctx.lineWidth=1.5; ctx.beginPath(); ctx.arc(d.x,d.y,12,0,Math.PI*2); ctx.stroke();
+    ctx.fillStyle=d.weapon.color+'33'; ctx.beginPath(); ctx.arc(d.x,d.y,18,0,Math.PI*2); ctx.fill();
+    ctx.strokeStyle=d.weapon.color; ctx.lineWidth=2; ctx.beginPath(); ctx.arc(d.x,d.y,16,0,Math.PI*2); ctx.stroke();
     ctx.save(); ctx.translate(d.x,d.y); ctx.fillStyle=d.weapon.color; ctx.fillRect(-12,-3,24,6); ctx.fillStyle='#aaa'; ctx.fillRect(6,-2,12,4); ctx.restore();
-    ctx.fillStyle=d.weapon.color; ctx.font='bold 10px monospace'; ctx.textAlign='center'; ctx.fillText(d.weapon.name,d.x,d.y-16);
-    const dx=player.x-d.x, dy=player.y-d.y;
-    if (Math.sqrt(dx*dx+dy*dy)<40) { ctx.fillStyle='#fff'; ctx.font='bold 12px monospace'; ctx.fillText('[E]',d.x,d.y-28); }
+    ctx.fillStyle=d.weapon.color; ctx.font='bold 11px monospace'; ctx.textAlign='center'; ctx.fillText(d.weapon.name,d.x,d.y-20);
+    const ddx=player.x-d.x, ddy=player.y-d.y;
+    if (Math.sqrt(ddx*ddx+ddy*ddy)<40) { ctx.fillStyle='#fff'; ctx.font='bold 13px monospace'; ctx.fillText('[E]',d.x,d.y-34); }
     ctx.textAlign='left';
   }
 
-  // Particulas
   for (const p of particles) { ctx.globalAlpha=p.life/p.maxLife; ctx.fillStyle=p.color; ctx.beginPath(); ctx.arc(p.x,p.y,3,0,Math.PI*2); ctx.fill(); }
   ctx.globalAlpha=1;
 
-  // Balas
-  for (const b of bullets) { ctx.fillStyle=b.owner==='enemy'?'#ff6600':currentWeapon.color; ctx.beginPath(); ctx.arc(b.x,b.y,4,0,Math.PI*2); ctx.fill(); }
+  for (const b of bullets) { ctx.fillStyle=b.owner==='enemy'?'#ff6600':currentWeapon.color; ctx.beginPath(); ctx.arc(b.x,b.y,5,0,Math.PI*2); ctx.fill(); }
 
-  // Enemigos
   for (const e of enemies) {
     if (e.dead) continue;
     if (!revealedTiles.has(`${Math.floor(e.x/TILE)},${Math.floor(e.y/TILE)}`)) continue;
     drawEnemy(ctx,e);
   }
 
-  // Jugador con sprite animado
   if (player.iframes===0||Math.floor(player.iframes/4)%2===0) {
     ctx.save(); ctx.translate(player.x,player.y);
     const flip=Math.abs(player.angle)>Math.PI/2?-1:1;
-    ctx.scale(flip,1);
-    drawPlayer(ctx);
-    ctx.restore();
-    // Arma
+    ctx.scale(flip,1); drawPlayer(ctx); ctx.restore();
     ctx.save(); ctx.translate(player.x,player.y); ctx.rotate(player.angle);
     if (currentWeapon.melee) {
       const swing=player.meleeSwing>0?(1-player.meleeSwing/12)*Math.PI*0.8:0;
@@ -788,18 +799,14 @@ function draw() {
 
   ctx.restore();
 
-  // HUD con corazones
   ctx.fillStyle='rgba(0,0,0,0.65)'; ctx.fillRect(0,0,W,48);
   const heartFull=sprites['heart_full'], heartEmpty=sprites['heart_empty'];
   const maxHearts=6;
   const fullHearts=Math.min(6,Math.round(player.hp/20));
   for (let i=0;i<maxHearts;i++) {
     const hSprite=i<fullHearts?heartFull:heartEmpty;
-    if (hSprite) ctx.drawImage(hSprite,10+i*20,10,18,18);
-    else {
-      ctx.fillStyle=i<fullHearts?'#e24b4a':'#555';
-      ctx.fillRect(10+i*20,10,16,16);
-    }
+    if (hSprite) ctx.drawImage(hSprite,10+i*22,8,20,20);
+    else { ctx.fillStyle=i<fullHearts?'#e24b4a':'#555'; ctx.fillRect(10+i*22,8,18,18); }
   }
   ctx.fillStyle=currentWeapon.color; ctx.font='bold 14px monospace'; ctx.textAlign='center'; ctx.fillText(currentWeapon.name,W/2,28); ctx.textAlign='left';
   if (level===TOTAL_LEVELS) { ctx.fillStyle='#FF6600'; ctx.font='bold 12px monospace'; ctx.textAlign='center'; ctx.fillText('NIVEL FINAL - LA MANTICORA TE ESPERA',W/2,44); ctx.textAlign='left'; }
