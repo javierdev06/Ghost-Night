@@ -10,7 +10,7 @@ const COLS = 60;
 const ROWS = 40;
 
 // ================================
-// CARGAR SPRITES
+//  Cargar Sprites
 // ================================
 const sprites = {};
 
